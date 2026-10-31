@@ -364,9 +364,9 @@ function U.screen(app)
   function s:draw()
     frame("PROFILE")
     -- the card
-    Nations.drawFlag(p.nation, 14, 20, 2)
-    gfx.text(gfx.fit(p.name, (W - 56) / 2), 42, 21, C.text, "left", false, 2)
-    gfx.text(Nations.name(p.nation), 42, 38, C.dim)
+    local nx = 14 + Nations.drawFlag(p.nation, 14, 20, 2) + 5
+    gfx.text(gfx.fit(p.name, (W - nx - 12) / 2), nx, 21, C.text, "left", false, 2)
+    gfx.text(Nations.name(p.nation), nx, 38, C.dim)
     local st = p.stats
     local pct = st.bouts > 0 and floor(100 * st.wins / st.bouts + 0.5) or 0
     gfx.text(string.format("BOUTS %d · WON %d (%d%%)", st.bouts, st.wins, pct), 14, 50, C.text)

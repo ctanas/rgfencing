@@ -213,21 +213,36 @@ end
 
 local cache = {}
 
--- An 11x8 image: the flag with a 1-pixel ink border.
+-- Flags are built for the current resolution: each flag pixel is 1, 2 or
+-- 4 canvas pixels, inside a 1-pixel ink border (2 at 720x480).
+local function cell()
+  local S = require("src.core").S
+  if S >= 3 then return 4, 2 elseif S > 1 then return 2, 1 end
+  return 1, 1
+end
+
+function N.clearCache() cache = {} end
+
 function N.flag(code)
   if cache[code] ~= nil then return cache[code] or nil end
   local n = N.BY[code]
   if not n or not love.graphics then cache[code] = false; return nil end
   local g = grid(n.spec)
-  local img = love.image.newImageData(FW + 2, FH + 2)
+  local c, b = cell()
+  local w, h = FW * c + 2 * b, FH * c + 2 * b
+  local img = love.image.newImageData(w, h)
   local ink = require("src.core").C.ink
-  for y = 0, FH + 1 do
-    for x = 0, FW + 1 do img:setPixel(x, y, ink[1], ink[2], ink[3], 1) end
+  for y = 0, h - 1 do
+    for x = 0, w - 1 do img:setPixel(x, y, ink[1], ink[2], ink[3], 1) end
   end
   for y = 1, FH do
     for x = 1, FW do
-      local c = hex(g[y][x])
-      img:setPixel(x, y, c[1], c[2], c[3], 1)
+      local col = hex(g[y][x])
+      for yy = 0, c - 1 do
+        for xx = 0, c - 1 do
+          img:setPixel(b + (x - 1) * c + xx, b + (y - 1) * c + yy, col[1], col[2], col[3], 1)
+        end
+      end
     end
   end
   local im = love.graphics.newImage(img)
@@ -236,16 +251,20 @@ function N.flag(code)
   return im
 end
 
--- Draw a flag with its top-left at (x, y); returns its width (0 if none).
+-- Draw a flag with its top-left at design (x, y), at a whole-number
+-- scale; returns its width in design units (0 if none).
 function N.drawFlag(code, x, y, scale)
   local im = code and N.flag(code)
   if not im then return 0 end
-  scale = scale or 1
-  love.graphics.setColor(1, 1, 1, 1)
-  love.graphics.draw(im, math.floor(x), math.floor(y), 0, scale, scale)
-  return (FW + 2) * scale
+  local gfx = require("src.gfx")
+  gfx.img(im, x, y, scale or 1)
+  return im:getWidth() * (scale or 1) / gfx.S
 end
 
-N.FLAG_W, N.FLAG_H = FW + 2, FH + 2
+-- A flag's width in design units.
+function N.flagW()
+  local c, b = cell()
+  return (FW * c + 2 * b) / require("src.core").S
+end
 
 return N

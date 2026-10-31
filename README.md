@@ -18,7 +18,7 @@ own profile, name and flag.
 | ![Training: attack the open line](screenshots/drill.png) | ![The salute before the bout](screenshots/salute.png) |
 | ![Your profile](screenshots/profile.png) | ![Typing a name, accents included](screenshots/keyboard.png) |
 
-*Screenshots and the clip are rendered by the game itself at native 720×480 (`./build.sh shots`).*
+*Screenshots and the clip are rendered by the game itself at 360×240, shown at 720×480 (`./build.sh shots`).*
 
 ## Install
 
@@ -229,8 +229,9 @@ the AI.
 
 ## Pixel art
 
-Everything is drawn in a 240×160 canvas and scaled ×3 to fill the 720×480 panel
-(the largest whole scale fitting other screens). Nothing is loaded from files:
+Everything is drawn into a canvas of 240×160, 360×240 or 720×480 (see
+Resolution) and scaled by a whole number to fill the panel. Nothing is loaded
+from files:
 
 - **Fencers** are rasterised every frame from their skeleton: each limb is a filled
   quad with a 1-pixel ink outline, drawn back to front, with far limbs shaded. The
@@ -238,13 +239,38 @@ Everything is drawn in a 240×160 canvas and scaled ×3 to fill the 720×480 pan
   them, so the leg grows out of the body instead of being stuck on. So
   the art always matches the geometry the rules use: the lamé you see is exactly
   the target, and the blade bends where it hit. The legs use two-bone IK.
-- **Hand-drawn** pixel sprites: the fencing mask, the title's crossed foils, the
-  5×7 font (accented capitals are built from the base letter and its accent),
-  and 112 flags at 9×6.
+- **Hand-drawn** pixel sprites: the fencing mask (9×10, and 14×15 for the finer
+  resolutions), the title's crossed foils, two fonts (5×7 and 7×10; accented
+  capitals are built from the base letter and its accent), and 112 flags at 9×6.
 - **Generated** at start-up: the tiered crowd (with a cheering frame), dithered
   light shafts, the LED barrier boards and the floor.
 - **Sound** is synthesised at start-up too: steel on steel from inharmonic
   partials, the scoring-box buzzer, feet on the metal piste, and the crowd.
+
+## Resolution
+
+**Options → Resolution** picks how finely the game is drawn. Each choice scales
+by a whole number to the RG34XXSP's 720×480 panel, so pixels stay crisp:
+
+| Setting | Scale | Fencer height | Look |
+|---|---|---|---|
+| 240×160 | ×3 | 47 px | Chunky pixel art |
+| 360×240 (default) | ×2 | 70 px | Finer pixel art, more detailed mask |
+| 720×480 | ×1 | 140 px | Full panel resolution, smooth limbs |
+
+![The same lunge and parry at 240×160, 360×240 and 720×480](screenshots/resolutions.png)
+
+There is no 480×320: 720 ÷ 480 = 1.5, so it can't fill the panel without
+uneven pixels or blur.
+
+Menus and text keep the same layout and size at every setting. Screens are laid
+out once, and the drawing helpers map them to whole canvas pixels with a font
+made for each resolution: the 5×7 font at 240×160, a 7×10 font at 360×240 and
+the same doubled at 720×480. The arena and the fencers are drawn natively, at
+30, 45 or 90 px per metre. That's where the extra detail goes: finer outlines,
+blades and limbs, and a 14×15 mask instead of 9×10. The crowd, the LED boards
+and the floor are generated at 360×240 density and doubled at 720×480, so the
+backdrop keeps its pixel grain.
 
 ## Built for the handheld
 

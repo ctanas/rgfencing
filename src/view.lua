@@ -15,23 +15,37 @@ local Bout = require("src.bout")
 local lg = love.graphics
 local floor, max, min, abs, sin, cos, sqrt = math.floor, math.max, math.min, math.abs, math.sin, math.cos, math.sqrt
 local C = core.C
+-- layout (design) units, for the HUD and overlays
 local W, H, PPM, GROUND = core.W, core.H, core.PPM, core.GROUND
 
 local V = {}
 
-local FAR, NEAR = 119, 137          -- piste edges on screen
+local FAR, NEAR = 119, 137          -- piste edges (design units)
 local TOPBAR, BOTBAR = 18, 148
 
--- The camera moves in whole pixels, so the scene doesn't shimmer.
-local function camPx(b) return floor(b.cam * PPM + 0.5) end
-local function screenX(b, wx) return W / 2 + wx * PPM - camPx(b) end
+-- The arena and fencers are drawn in canvas pixels, at the current scale.
+-- These are refreshed at the start of every draw (V.draw).
+local S, CW, PPMc, GROUNDc, FARc, NEARc, ow = 1, 240, 30, 128, 119, 137, 1
+local function refresh()
+  S, CW = core.S, core.CW
+  PPMc, GROUNDc = PPM * S, GROUND * S
+  FARc, NEARc = FAR * S, NEAR * S
+  ow = gfx.ow
+end
+local function R(v) return max(1, floor(v * S + 0.5)) end
+
+-- The camera moves in whole canvas pixels, so the scene doesn't shimmer.
+local function camPx(b) return floor(b.cam * PPMc + 0.5) end
+local function screenX(b, wx) return CW / 2 + wx * PPMc - camPx(b) end
+-- The same in design units, for overlays drawn with the gfx helpers.
+local function dX(b, wx) return screenX(b, wx) / S end
 -- Piste markings converge slightly towards the far edge.
 local function persp(b, wx, y)
-  return W / 2 + (wx * PPM - camPx(b)) * (1 + (y - GROUND) / 18 * 0.10)
+  return CW / 2 + (wx * PPMc - camPx(b)) * (1 + (y - GROUNDc) / (18 * S) * 0.10)
 end
 
 ---------------------------------------------------------------------------
--- Primitive shapes with outlines
+-- Primitive shapes with outlines (canvas pixels)
 ---------------------------------------------------------------------------
 
 local function quad(x1, y1, x2, y2, h1, h2, ext)
@@ -46,25 +60,25 @@ local function quad(x1, y1, x2, y2, h1, h2, ext)
     x2 - nx * h2, y2 - ny * h2, x1 - nx * h1, y1 - ny * h1)
 end
 
--- A limb through joints p (x1,y1,x2,y2,x3,y3) with widths w (px).
--- pass: "ink" (outline only), "fill" (colour only) or nil (both). Drawing
--- the outlines of several parts before any of their fills joins them into
--- one silhouette, with no seam where they meet.
+-- A limb through joints p (x1,y1,x2,y2,x3,y3) with widths w (design px,
+-- scaled here). pass: "ink" (outline only), "fill" (colour only) or nil
+-- (both). Drawing the outlines of several parts before any of their fills
+-- joins them into one silhouette, with no seam where they meet.
 local function limb(p, w, col, pass)
   local n = #p / 2
   if pass ~= "fill" then
     core.color(C.ink)
     for k = 1, n - 1 do
-      quad(p[2 * k - 1], p[2 * k], p[2 * k + 1], p[2 * k + 2], w[k] / 2 + 1, w[k + 1] / 2 + 1, 1)
+      quad(p[2 * k - 1], p[2 * k], p[2 * k + 1], p[2 * k + 2], w[k] * S / 2 + ow, w[k + 1] * S / 2 + ow, ow)
     end
-    for k = 2, n - 1 do lg.circle("fill", p[2 * k - 1], p[2 * k], w[k] / 2 + 1, 8) end
+    for k = 2, n - 1 do lg.circle("fill", p[2 * k - 1], p[2 * k], w[k] * S / 2 + ow, 12) end
   end
   if pass ~= "ink" then
     core.color(col)
     for k = 1, n - 1 do
-      quad(p[2 * k - 1], p[2 * k], p[2 * k + 1], p[2 * k + 2], w[k] / 2, w[k + 1] / 2, 0)
+      quad(p[2 * k - 1], p[2 * k], p[2 * k + 1], p[2 * k + 2], w[k] * S / 2, w[k + 1] * S / 2, 0)
     end
-    for k = 2, n - 1 do lg.circle("fill", p[2 * k - 1], p[2 * k], w[k] / 2, 8) end
+    for k = 2, n - 1 do lg.circle("fill", p[2 * k - 1], p[2 * k], w[k] * S / 2, 12) end
   end
 end
 
@@ -73,7 +87,7 @@ local function outlinedPoly(pts, col, pass)
     core.color(C.ink)
     for _, o in ipairs({ { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } }) do
       lg.push()
-      lg.translate(o[1], o[2])
+      lg.translate(o[1] * ow, o[2] * ow)
       lg.polygon("fill", pts)
       lg.pop()
     end
@@ -96,63 +110,61 @@ local LAME = { { 0.04, -0.13 }, { 0.0, 0.12 }, { 0.55, 0.15 }, { 0.86, 0.10 }, {
 ---------------------------------------------------------------------------
 
 local function drawStands(b)
-  local cw = art.crowdW
-  local off = -b.cam * PPM * 0.35
-  local x0 = floor(W / 2 - cw / 2 + off)
+  local K = art.K
   local frame = (b.cheer and b.cheer > 0 and floor(core.time * 7) % 2 == 0) and 2 or 1
+  local img = art.crowd[frame]
+  local cw = img:getWidth() * K
   lg.setColor(1, 1, 1, 1)
-  lg.draw(art.crowd[frame], x0, TOPBAR - 2)
+  lg.draw(img, floor(CW / 2 - cw / 2 - b.cam * PPMc * 0.35), floor((TOPBAR - 2) * S), 0, K, K)
   -- barrier boards
-  local bw = art.boardsW
-  local bx = floor(W / 2 - bw / 2 - b.cam * PPM * 0.75)
-  lg.draw(art.boards, bx, 92)
+  local bw = art.boards:getWidth() * K
+  lg.draw(art.boards, floor(CW / 2 - bw / 2 - b.cam * PPMc * 0.75), floor(92 * S), 0, K, K)
   -- floor (dithered once, at start-up)
-  lg.setColor(1, 1, 1, 1)
-  lg.draw(art.floor, 0, 104)
+  lg.draw(art.floor, 0, floor(104 * S), 0, K, K)
 end
 
 local function pistePoly(b, x1, x2, col)
   core.color(col)
+  local y2 = NEARc + ow
   lg.polygon("fill",
-    persp(b, x1, FAR), FAR, persp(b, x2, FAR), FAR,
-    persp(b, x2, NEAR + 1), NEAR + 1, persp(b, x1, NEAR + 1), NEAR + 1)
+    persp(b, x1, FARc), FARc, persp(b, x2, FARc), FARc,
+    persp(b, x2, y2), y2, persp(b, x1, y2), y2)
 end
 
-local function pisteLine(b, wx, col)
+local function pisteLine(b, wx, col, th)
   core.color(col)
-  gfx.line(persp(b, wx, FAR), FAR, persp(b, wx, NEAR), NEAR)
+  gfx.cline(persp(b, wx, FARc), FARc, persp(b, wx, NEARc), NEARc, th or ow)
 end
 
 local function drawPiste(b)
-  local E, R, Wz = core.END, core.RUNOFF, core.WARN
+  local E, Rn, Wz = core.END, core.RUNOFF, core.WARN
   -- shadow under the piste
   core.color(C.ink)
-  lg.polygon("fill", persp(b, -R, NEAR + 1), NEAR + 1, persp(b, R, NEAR + 1), NEAR + 1,
-    persp(b, R, NEAR + 3), NEAR + 3, persp(b, -R, NEAR + 3), NEAR + 3)
-  pistePoly(b, -R, -E, C.runoff)
-  pistePoly(b, E, R, C.runoff)
+  local a, z = NEARc + ow, NEARc + 3 * S
+  lg.polygon("fill", persp(b, -Rn, a), a, persp(b, Rn, a), a, persp(b, Rn, z), z, persp(b, -Rn, z), z)
+  pistePoly(b, -Rn, -E, C.runoff)
+  pistePoly(b, E, Rn, C.runoff)
   pistePoly(b, -E, -Wz, C.warn)
   pistePoly(b, Wz, E, C.warn)
   pistePoly(b, -Wz, Wz, C.piste)
   -- metal texture: lighter stripes along the piste
   core.color(C.pisteL, 0.35)
-  for _, y in ipairs({ FAR + 2, FAR + 7, FAR + 12 }) do
-    gfx.line(persp(b, -R, y), y, persp(b, R, y), y)
+  for _, yd in ipairs({ FAR + 2, FAR + 7, FAR + 12 }) do
+    local y = yd * S
+    gfx.cline(persp(b, -Rn, y), y, persp(b, Rn, y), y, ow)
   end
   core.color(C.pisteD)
-  gfx.line(persp(b, -R, NEAR), NEAR, persp(b, R, NEAR), NEAR)
+  gfx.cline(persp(b, -Rn, NEARc), NEARc, persp(b, Rn, NEARc), NEARc, ow)
   core.color(C.pisteL)
-  gfx.line(persp(b, -R, FAR), FAR, persp(b, R, FAR), FAR)
-  -- markings: centre, en-garde, warning, end lines
-  pisteLine(b, 0, C.line)
+  gfx.cline(persp(b, -Rn, FARc), FARc, persp(b, Rn, FARc), FARc, ow)
+  -- markings: centre (wider), en-garde, warning, end lines
+  pisteLine(b, 0, C.line, 2 * ow)
   pisteLine(b, -core.ENGARDE, C.line)
   pisteLine(b, core.ENGARDE, C.line)
   pisteLine(b, -Wz, C.warnL)
   pisteLine(b, Wz, C.warnL)
   pisteLine(b, -E, C.line)
   pisteLine(b, E, C.line)
-  -- the centre line is drawn wider
-  pisteLine(b, 0.034, C.line)
 end
 
 local function lampColor(b, side)
@@ -162,29 +174,33 @@ local function lampColor(b, side)
   return nil
 end
 
+local function crect(x, y, w, h)
+  lg.rectangle("fill", floor(x), floor(y), w, h)
+end
+
 local function drawReels(b)
   for side = 1, 2 do
     local wx = (side == 1 and -1 or 1) * (core.RUNOFF + 0.4)
-    local x = floor(persp(b, wx, FAR - 2))
-    if x > -12 and x < W + 12 then
-      local y = FAR - 2
+    local y = floor((FAR - 2) * S)
+    local x = floor(persp(b, wx, y))
+    if x > -R(12) and x < CW + R(12) then
       core.color(C.ink)
-      gfx.rect(x - 4, y - 8, 9, 9)
+      crect(x - R(4), y - R(8), R(9), R(9))
       core.color(C.suit)
-      gfx.rect(x - 3, y - 7, 7, 7)
+      crect(x - R(3), y - R(7), R(7), R(7))
       core.color(C.dim)
-      gfx.rect(x - 2, y - 5, 5, 3)
+      crect(x - R(2), y - R(5), R(5), R(3))
       core.color(C.ink)
-      gfx.rect(x - 1, y - 4, 3, 1)
+      crect(x - R(1), y - R(4), R(3), ow)
       -- lamp
       local lc = lampColor(b, side)
       core.color(C.ink)
-      gfx.rect(x - 3, y - 12, 7, 4)
+      crect(x - R(3), y - R(12), R(7), R(4))
       core.color(lc or C.lampOff)
-      gfx.rect(x - 2, y - 11, 5, 2)
+      crect(x - R(2), y - R(11), R(5), R(2))
       if lc then
         core.color(lc, 0.25)
-        lg.circle("fill", x + 0.5, y - 10, 9, 16)
+        lg.circle("fill", x + 0.5 * S, y - R(10), 9 * S, 24)
       end
     end
   end
@@ -200,15 +216,16 @@ local function drawCord(b, f, i)
   local home = f.homeFace
   local ox = floor(screenX(b, f.x) + 0.5)
   -- the clip, on the side of the body facing the reel
-  local ax = ox - home * (0.13 + 0.12 * math.sin(j.lean)) * PPM
-  local ay = GROUND - (j.hipy + 0.18) * PPM
+  local ax = ox - home * (0.13 + 0.12 * math.sin(j.lean)) * PPMc
+  local ay = GROUNDc - (j.hipy + 0.18) * PPMc
   -- the reel's exit
-  local rx, ry = persp(b, -home * (core.RUNOFF + 0.4), FAR - 2), FAR - 7
+  local ry = (FAR - 7) * S
+  local rx = persp(b, -home * (core.RUNOFF + 0.4), (FAR - 2) * S)
   local span = abs(rx - ax)
-  local slack = b.cordSag and b.cordSag[i] and b.cordSag[i][1] or 0
-  local sag = max(1, 2 + span * 0.03 + slack)
-  local floorY = GROUND + 3
-  local n = math.max(6, math.min(24, floor(span / 8)))
+  local slack = (b.cordSag and b.cordSag[i] and b.cordSag[i][1] or 0) * S
+  local sag = max(S, 2 * S + span * 0.03 + slack)
+  local floorY = GROUNDc + 3 * S
+  local n = max(6, min(32, floor(span / (8 * S))))
   -- a parabola is a good enough catenary for a cable this tight; where
   -- the slack would take it below the floor, it rests on the floor
   local pts = { ax, ay }
@@ -220,9 +237,9 @@ local function drawCord(b, f, i)
   -- grey rubber with a dark underside, so it reads on any background
   for pass = 1, 2 do
     core.color(pass == 1 and C.ink or C.cable)
-    local dy = (pass == 1) and 1 or 0
+    local dy = (pass == 1) and ow or 0
     for k = 1, #pts - 2, 2 do
-      gfx.line(pts[k], pts[k + 1] + dy, pts[k + 2], pts[k + 3] + dy)
+      gfx.cline(pts[k], pts[k + 1] + dy, pts[k + 2], pts[k + 3] + dy, ow)
     end
   end
 end
@@ -306,11 +323,13 @@ end
 ---------------------------------------------------------------------------
 
 -- A shoe around the ankle (ax, ay), pitched toe-up (+) or heel-up (-).
+-- Sizes in design pixels, scaled here.
 local function shoe(ax, ay, face, len, pitch, col)
   local c, s = cos(pitch), sin(pitch)
   local pts = {}
   for _, p in ipairs({ { -2.2, -1.8 }, { len, -1.8 }, { len - 1.5, 0.4 }, { -2.2, 0.8 } }) do
-    local x, y = p[1] * c - p[2] * s, p[1] * s + p[2] * c
+    local x, y = p[1] * S, p[2] * S
+    x, y = x * c - y * s, x * s + y * c
     pts[#pts + 1] = ax + face * x
     pts[#pts + 1] = ay - y
   end
@@ -322,7 +341,7 @@ function V.fencer(b, f)
   local face = f.vface or f.face
   local sgn = face < 0 and -1 or 1
   local ox = floor(screenX(b, f.x) + 0.5)
-  local function P(lx, ly) return ox + face * lx * PPM, GROUND - ly * PPM end
+  local function P(lx, ly) return ox + face * lx * PPMc, GROUNDc - ly * PPMc end
   local side = core.SIDE[f.side]
 
   -- far arm
@@ -368,7 +387,7 @@ function V.fencer(b, f)
   core.color(C.whiteS)
   local s1x, s1y = TP(-0.12, -0.13)
   local s2x, s2y = TP(-0.14, -0.02)
-  gfx.line(s1x, s1y, s2x, s2y)
+  gfx.cline(s1x, s1y, s2x, s2y, ow)
   shoe(fx, fy, sgn, 5, f.ffp or 0, C.shoe)
 
   -- trunk on top: the jacket's hem overlaps the top of the breeches and
@@ -379,20 +398,21 @@ function V.fencer(b, f)
   core.color(C.lameL)
   local l1x, l1y = TP(0.12, 0.10)
   local l2x, l2y = TP(0.70, 0.11)
-  gfx.line(l1x, l1y, l2x, l2y)
+  gfx.cline(l1x, l1y, l2x, l2y, ow)
   core.color(C.lameD)
   local d1x, d1y = TP(0.05, -0.09)
   local d2x, d2y = TP(0.75, -0.10)
-  gfx.line(d1x, d1y, d2x, d2y)
+  gfx.cline(d1x, d1y, d2x, d2y, ow)
   -- side colour on the back of the collar
   core.color(side.col)
   local cx, cy = TP(0.93, -0.06)
-  gfx.rect(cx - 1, cy, 2, 1)
+  crect(cx - R(1), cy, R(2), ow)
 
   -- mask
   local mx, my = P(j.headx, j.heady)
+  local K = art.K
   lg.setColor(1, 1, 1, 1)
-  lg.draw(art.mask, floor(mx + 0.5), floor(my + 0.5), 0, sgn, 1, 4, 5)
+  lg.draw(art.mask, floor(mx + 0.5), floor(my + 0.5), 0, sgn * K, K, art.maskO[1], art.maskO[2])
 
   -- sword arm
   local s1x, s1y = P(j.shx, j.shy)
@@ -400,20 +420,21 @@ function V.fencer(b, f)
   local s3x, s3y = P(j.hx, j.hy)
   limb({ s1x, s1y, s2x, s2y, s3x, s3y }, { 3.6, 3.2, 2.8 }, C.white)
   -- glove in the side colour
+  local g = max(2, R(2))
   core.color(C.ink)
-  gfx.rect(s3x - 2, s3y - 2, 4, 4)
+  crect(s3x - g / 2 - ow, s3y - g / 2 - ow, g + 2 * ow, g + 2 * ow)
   core.color(side.col)
-  gfx.rect(s3x - 1, s3y - 1, 2, 2)
+  crect(s3x - g / 2, s3y - g / 2, g, g)
 end
 
 function V.blade(b, f)
   local j = f.j
   local face = f.vface or f.face
   local ox = floor(screenX(b, f.x) + 0.5)
-  local hx, hy = ox + face * j.hx * PPM, GROUND - j.hy * PPM
+  local hx, hy = ox + face * j.hx * PPMc, GROUNDc - j.hy * PPMc
   local ba = math.atan2(j.tipy - j.hy, j.tipx - j.hx)
   local dx, dy = cos(ba) * face, -sin(ba)
-  local L = Fencer.BLADE * PPM
+  local L = Fencer.BLADE * PPMc
   local tx, ty
   local path = {}
   local bent = false
@@ -422,13 +443,14 @@ function V.blade(b, f)
     -- still there (a bend shortens the blade, it never stretches it)
     local o = f.opp
     tx = screenX(b, o.x + o.face * f.hit.lx)
-    ty = GROUND - f.hit.ly * PPM
+    ty = GROUNDc - f.hit.ly * PPMc
     bent = (tx - hx) ^ 2 + (ty - hy) ^ 2 <= (L * 1.02) ^ 2
   end
   if bent then
     local qx, qy = hx + dx * L * 0.55, hy + dy * L * 0.55
-    for k = 0, 8 do
-      local t = k / 8
+    local n = floor(8 * S)
+    for k = 0, n do
+      local t = k / n
       path[#path + 1] = { (1 - t) * (1 - t) * hx + 2 * (1 - t) * t * qx + t * t * tx,
         (1 - t) * (1 - t) * hy + 2 * (1 - t) * t * qy + t * t * ty }
     end
@@ -438,17 +460,18 @@ function V.blade(b, f)
   end
   -- shadow, then steel
   core.color(C.ink, 0.8)
-  for k = 1, #path - 1 do gfx.line(path[k][1], path[k][2] + 1, path[k + 1][1], path[k + 1][2] + 1) end
+  for k = 1, #path - 1 do gfx.cline(path[k][1], path[k][2] + ow, path[k + 1][1], path[k + 1][2] + ow, ow) end
   core.color(C.blade)
-  for k = 1, #path - 1 do gfx.line(path[k][1], path[k][2], path[k + 1][1], path[k + 1][2]) end
+  for k = 1, #path - 1 do gfx.cline(path[k][1], path[k][2], path[k + 1][1], path[k + 1][2], ow) end
   core.color(C.bladeD)
-  gfx.px(tx, ty)
+  gfx.cpx(tx, ty, ow)
   -- bell guard, across the blade
   local nx, ny = -dy, dx
+  local gl, go = 2.5 * S, 1.5 * S
   core.color(C.ink)
-  gfx.line(hx + dx * 1.5 - nx * 2.5, hy + dy * 1.5 - ny * 2.5 + 1, hx + dx * 1.5 + nx * 2.5, hy + dy * 1.5 + ny * 2.5 + 1)
+  gfx.cline(hx + dx * go - nx * gl, hy + dy * go - ny * gl + ow, hx + dx * go + nx * gl, hy + dy * go + ny * gl + ow, ow)
   core.color(C.guard)
-  gfx.line(hx + dx * 1.5 - nx * 2.5, hy + dy * 1.5 - ny * 2.5, hx + dx * 1.5 + nx * 2.5, hy + dy * 1.5 + ny * 2.5)
+  gfx.cline(hx + dx * go - nx * gl, hy + dy * go - ny * gl, hx + dx * go + nx * gl, hy + dy * go + ny * gl, ow)
 end
 
 ---------------------------------------------------------------------------
@@ -466,7 +489,7 @@ local function drawAssists(b)
   local row = b.row
   if row.holder then
     local f = b.f[row.holder]
-    local x = floor(screenX(b, f.x + f.face * f.j.headx))
+    local x = floor(dX(b, f.x + f.face * f.j.headx))
     local y = floor(GROUND - (f.j.heady + 0.22) * PPM) - 9 + floor(sin(core.time * 8) + 0.5)
     gfx.text("▼", x, y, C.yellow, "center", true)
   end
@@ -475,7 +498,7 @@ local function drawAssists(b)
     local me, op = b.f[i], b.f[3 - i]
     if me.human and op.offense then
       local up = op.attackLine == "high"
-      local x = floor(screenX(b, me.x + me.face * 0.75))
+      local x = floor(dX(b, me.x + me.face * 0.75))
       local y = floor(GROUND - (up and 1.30 or 0.78) * PPM)
       gfx.text(up and "▲" or "▼", x, y, C.orange, "center", true)
     end
@@ -504,19 +527,22 @@ end
 -- through a halo in the scorer's colour.
 local function scoreText(b, i, s, x, align)
   local g = b.scoreGlow and b.scoreGlow[i] or 0
-  local scale = 2
-  local w = gfx.textWidth(s, scale)
-  local lx = (align == "right") and (x - w) or x
-  local y = 2 - 2 * scale
+  local k2 = 2 * ((S >= 3) and 2 or 1)          -- the font's draw scale
+  local w = gfx.font:getWidth(s) * k2
+  local X = floor(x * S + 0.5)
+  local lx = (align == "right") and (X - w) or X
+  local y = floor(2 * S + 0.5) - ((S == 1) and 2 or 3) * k2
+  local scale = k2
   if g > 0 then
     local k = g / Bout.GLOW
     local pulse = k ^ 0.7 * (0.8 + 0.2 * sin(core.time * 18))
     local col = core.SIDE[i].col
-    for r = 2, 1, -1 do
-      lg.setColor(col[1], col[2], col[3], pulse * (r == 2 and 0.28 or 0.6))
+    local r1, r2 = max(1, floor(S)), max(2, floor(2 * S))
+    for _, r in ipairs({ r2, r1 }) do
+      lg.setColor(col[1], col[2], col[3], pulse * (r == r2 and 0.28 or 0.6))
       for dy = -r, r do
         for dx = -r, r do
-          if (dx ~= 0 or dy ~= 0) and abs(dx) + abs(dy) <= r + (r == 2 and 1 or 0) then
+          if (dx ~= 0 or dy ~= 0) and abs(dx) + abs(dy) <= r + ((r == r2) and 1 or 0) then
             lg.print(s, floor(lx + dx), floor(y + dy), 0, scale, scale)
           end
         end
@@ -545,7 +571,7 @@ function V.topBar(b)
   -- names, with their flags, kept clear of the score
   local f1, f2 = b.f[1], b.f[2]
   local fw1 = f1.nation and (Nations.drawFlag(f1.nation, 3, 9) + 3) or 0
-  local fw2 = f2.nation and (Nations.drawFlag(f2.nation, W - 3 - Nations.FLAG_W, 9) + 3) or 0
+  local fw2 = f2.nation and (Nations.drawFlag(f2.nation, W - 3 - Nations.flagW(), 9) + 3) or 0
   local room = W / 2 - 42 - 3
   local n1 = gfx.fit(f1.name, room - fw1)
   local n2 = gfx.fit(f2.name, room - fw2)
@@ -667,8 +693,9 @@ end
 ---------------------------------------------------------------------------
 
 function V.draw(b)
+  refresh()
   local sh = 0
-  if b.shake and b.shake > 0 then sh = (floor(core.time * 60) % 2 == 0) and 1 or -1 end
+  if b.shake and b.shake > 0 then sh = (floor(core.time * 60) % 2 == 0) and ow or -ow end
   lg.push()
   lg.translate(0, sh)
   drawStands(b)
@@ -689,9 +716,9 @@ function V.draw(b)
   for _, i in ipairs(order) do V.blade(b, b.f[i]) end
   for _, p in ipairs(b.fx) do
     core.color(p.col)
-    gfx.px(screenX(b, p.x), GROUND - p.y * PPM)
+    gfx.cpx(screenX(b, p.x), GROUNDc - p.y * PPMc, ow)
   end
-  if b.o.drill and b.o.drill.drawWorld then b.o.drill:drawWorld(b, screenX) end
+  if b.o.drill and b.o.drill.drawWorld then b.o.drill:drawWorld(b, dX) end
   if not b.o.noHud then drawAssists(b) end
   lg.pop()
   if b.o.noHud then return end
@@ -701,5 +728,5 @@ function V.draw(b)
   if b.o.drill and b.o.drill.drawHud then b.o.drill:drawHud(b) end
 end
 
-V.screenX = screenX
+V.screenX = dX
 return V

@@ -1,14 +1,30 @@
 -- Shared constants, palette and small helpers used by every module.
 
 local core = {
-  VERSION = "0.2.1",
-  W = 240,           -- logical pixel canvas, shown x3 on the 720x480 panel
+  VERSION = "0.3.0",
+  -- Layout ("design") units: every screen is laid out in a 240x160 space.
+  W = 240,
   H = 160,
-  PPM = 30,          -- pixels per metre on the piste
-  GROUND = 128,      -- screen y of the fencers' feet
+  PPM = 30,          -- design pixels per metre on the piste
+  GROUND = 128,      -- design y of the fencers' feet
   time = 0,          -- global clock, seconds
   device = false,    -- true when running fullscreen on the handheld
 }
+
+-- Render resolutions. S = canvas pixels per design pixel; the canvas is
+-- scaled up by a whole number to fill the RG34XXSP's 720x480 panel.
+core.RES = {
+  { w = 240, h = 160, s = 1, name = "240×160" },
+  { w = 360, h = 240, s = 1.5, name = "360×240" },
+  { w = 720, h = 480, s = 3, name = "720×480" },
+}
+core.res, core.S, core.CW, core.CH = 2, 1.5, 360, 240
+
+function core.setRes(i)
+  local r = core.RES[i] or core.RES[2]
+  core.res = core.RES[i] and i or 2
+  core.S, core.CW, core.CH = r.s, r.w, r.h
+end
 
 -- Piste geometry (metres, centre line at x = 0). FIE: 14 m between the end
 -- lines, en-garde lines 2 m from the centre, warning zone the last 2 m,

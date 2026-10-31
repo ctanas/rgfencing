@@ -41,6 +41,7 @@ local SCRIPT = {
   { press = "b" }, { wait = 5 },
   { "options" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" },
   { press = "a" }, { wait = 5 }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "right" },
+  { press = "down" }, { press = "right" }, { wait = 5 },
   { press = "b" }, { wait = 10 },
   { "quick bout from the right" }, { press = "up" }, { press = "up" }, { press = "up" }, { press = "up" }, { press = "up" },
   { press = "a" }, { wait = 5 }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 150 },

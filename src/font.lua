@@ -149,18 +149,12 @@ G["Ø"] = ".###./#..##/#..##/#.#.#/##..#/##..#/.###."
 G["Ł"] = "#..../#..../#.#../##.../#..../#..../#####"
 G["ß"] = ".##../#..#./#..#./###../#..#./#..#./#.##."
 
-local ORDER = {}
-for ch in pairs(G) do ORDER[#ORDER + 1] = ch end
-table.sort(ORDER)
-
 -- Every character the font can draw (the name keyboard uses this).
 local font = { HAS = {} }
 for ch in pairs(G) do font.HAS[ch] = true end
 
-local H = 11
-
-local function rows(def)
-  local start = 2
+local function rows(def, defStart)
+  local start = defStart
   if def:sub(1, 1) == "!" then
     start = 0
     def = def:sub(2)
@@ -170,12 +164,17 @@ local function rows(def)
   return r, start
 end
 
-function font.build()
+-- An ImageFont from a glyph table: cell height H, glyph rows starting at
+-- row defStart (unless "!"), spacing pixels between glyphs.
+local function build(glyphs, H, defStart, spacing)
+  local order = {}
+  for ch in pairs(glyphs) do order[#order + 1] = ch end
+  table.sort(order)
   -- total width: a separator column before each glyph and at the end
   local total = 1
   local parsed = {}
-  for i, ch in ipairs(ORDER) do
-    local r, start = rows(G[ch])
+  for i, ch in ipairs(order) do
+    local r, start = rows(glyphs[ch], defStart)
     local w = #r[1]
     for _, row in ipairs(r) do
       assert(#row == w, "font: ragged glyph '" .. ch .. "'")
@@ -184,13 +183,12 @@ function font.build()
     total = total + w + 1
   end
   local img = love.image.newImageData(total, H)
-  local x = 0
   local function sep(col)
     for y = 0, H - 1 do img:setPixel(col, y, 1, 0, 1, 1) end
   end
   sep(0)
-  x = 1
-  for i = 1, #ORDER do
+  local x = 1
+  for i = 1, #order do
     local p = parsed[i]
     for ry, row in ipairs(p.r) do
       local y = p.start + ry - 1
@@ -202,14 +200,25 @@ function font.build()
     sep(x)
     x = x + 1
   end
-  local f = love.graphics.newImageFont(img, table.concat(ORDER), 1)
+  local f = love.graphics.newImageFont(img, table.concat(order), spacing)
   f:setFilter("nearest", "nearest")
   return f
 end
 
--- Offset from the drawing y to the top of the capitals.
+-- The 5x7 font (240x160): 11-row cells, capitals from row 2.
+function font.build()
+  return build(G, 11, 2, 1)
+end
+
+-- The 7x10 font (360x240, and doubled at 720x480): 16-row cells,
+-- capitals from row 3.
+function font.build360()
+  return build(require("src.font360"), 16, 3, 2)
+end
+
+-- Offset from the drawing y to the top of the capitals, per font.
 font.CAP = 2
-font.H = H
+font.CAP360 = 3
 font.LINE = 10
 
 return font

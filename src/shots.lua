@@ -147,15 +147,16 @@ local function film(app, shot, act)
   local dur = tonumber(argValue(args, "--dur")) or tl.dur
   shot.frames = skip + math.floor(dur * 60) + 2
   local count = 0
-  local fw, fh = full and core.W or 112, full and core.H or 72
+  local S = core.S
+  local fw, fh = full and core.CW or math.floor(112 * S), full and core.CH or math.floor(72 * S)
   shot.film = function(canvas)
     count = count + 1
     if count <= skip or (count - skip) % every ~= 1 then return end
     if full then
       frames[#frames + 1] = canvas:newImageData()
     else
-      local x0 = 120 + math.floor((-1.1 - 1.0) * core.PPM) - 4
-      frames[#frames + 1] = canvas:newImageData(nil, 1, math.max(0, x0), 64, 112, 72)
+      local x0 = math.floor((120 + math.floor((-1.1 - 1.0) * core.PPM) - 4) * S)
+      frames[#frames + 1] = canvas:newImageData(nil, 1, math.max(0, x0), math.floor(64 * S), fw, fh)
     end
   end
   shot.filmDone = function()

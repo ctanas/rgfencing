@@ -31,6 +31,27 @@ art.MASK = {
   "....kkk..",
 }
 
+-- The same mask in finer detail, for 360x240 (doubled at 720x480): mesh
+-- with a highlight and a texture of dots, the metal rim, the padded back
+-- and the bib under the chin. e bib shade, d mesh dot.
+art.MASK360 = {
+  "....kkkkkk....",
+  "..kkwsmmmmkk..",
+  ".kwwsmhmdmmmk.",
+  ".kwwsmmhmdmmk.",
+  "kwwwsmdmhmdmmk",
+  "kwwwsmmdmhmdmk",
+  "kwwwsmdmdmhmmk",
+  "kwwwsmmdmdmhmk",
+  "kwwwsmdmdmdmmk",
+  ".kwwwsmmdmmmk.",
+  "..kwwwsmmmmk..",
+  "...kewwwwwwk..",
+  "....kewwwwwk..",
+  ".....keewwk...",
+  "......kkkk....",
+}
+
 -- Crossed foils for the title (16x16): b blade, g guard, k ink.
 art.FOILS = {
   "b..............b",
@@ -73,18 +94,21 @@ local HAIRS = { "2a1d18", "4a3426", "8a6a3a", "1c1c22", "6a4a2a", "b0a090" }
 
 -- The stands: tiers of spectators, darker towards the back, with light
 -- shafts dithered over them. Returns two images: calm and cheering.
-local function buildCrowd(w, h)
+-- L: layer pixels per design pixel (1 at 240x160, 1.5 otherwise).
+local function buildCrowd(L)
+  local function r_(v) return max(1, floor(v * L + 0.5)) end
+  local w, h = r_(520), r_(76)
   local rng = love.math.newRandomGenerator(7)
   local frames = {}
   local people = {}
   local rows = 8
   for r = 0, rows - 1 do
-    local base = h - 3 - r * 8
-    local x = (r % 2) * 3 - 2
+    local base = h - r_(3) - r * r_(8)
+    local x = (r % 2) * r_(3) - r_(2)
     while x < w do
       if rng:random() > 0.13 then
         people[#people + 1] = {
-          x = x + rng:random(0, 1), y = base, r = r,
+          x = x + rng:random(0, r_(1)), y = base, r = r,
           shirt = core.hex(SHIRTS[rng:random(1, #SHIRTS)]),
           skin = core.hex(SKINS[rng:random(1, #SKINS)]),
           hair = core.hex(HAIRS[rng:random(1, #HAIRS)]),
@@ -92,7 +116,7 @@ local function buildCrowd(w, h)
           flag = rng:random() < 0.05 and (rng:random() < 0.5 and C.red or C.green) or nil,
         }
       end
-      x = x + 6
+      x = x + r_(6)
     end
   end
   for fr = 1, 2 do
@@ -107,21 +131,26 @@ local function buildCrowd(w, h)
     end
     -- seat rows
     for r = 0, rows - 1 do
-      local base = h - 3 - r * 8
-      setRect(img, 0, base, w, 2, shade(C.seat, 1 - r * 0.07))
-      setRect(img, 0, base + 2, w, 1, shade(C.wall, 0.8))
+      local base = h - r_(3) - r * r_(8)
+      setRect(img, 0, base, w, r_(2), shade(C.seat, 1 - r * 0.07))
+      setRect(img, 0, base + r_(2), w, r_(1), shade(C.wall, 0.8))
     end
     for _, p in ipairs(people) do
       local k = 0.78 - p.r * 0.06
-      local up = (fr == 2 and p.jump) and 1 or 0
+      local up = (fr == 2 and p.jump) and r_(1) or 0
       local y = p.y - up
-      setRect(img, p.x, y - 4, 4, 4, shade(p.shirt, k))
-      setRect(img, p.x + 1, y - 6, 2, 2, shade(p.skin, k))
-      setRect(img, p.x + 1, y - 7, 2, 1, shade(p.hair, k))
+      setRect(img, p.x, y - r_(4), r_(4), r_(4), shade(p.shirt, k))
+      if L > 1 then
+        -- shoulders and a collar in the finer layer
+        setRect(img, p.x, y - r_(4), r_(4), 1, shade(p.shirt, k * 1.15))
+        setRect(img, p.x + r_(1), y - r_(4), r_(2), 1, shade(p.skin, k * 0.8))
+      end
+      setRect(img, p.x + r_(1), y - r_(6), r_(2), r_(2), shade(p.skin, k))
+      setRect(img, p.x + r_(1), y - r_(7), r_(2), r_(1), shade(p.hair, k))
       if fr == 2 and p.arms then
-        setRect(img, p.x - 1, y - 8, 1, 3, shade(p.skin, k * 0.9))
-        setRect(img, p.x + 4, y - 8, 1, 3, shade(p.skin, k * 0.9))
-        if p.flag then setRect(img, p.x + 4, y - 11, 3, 2, p.flag) end
+        setRect(img, p.x - r_(1), y - r_(8), r_(1), r_(3), shade(p.skin, k * 0.9))
+        setRect(img, p.x + r_(4), y - r_(8), r_(1), r_(3), shade(p.skin, k * 0.9))
+        if p.flag then setRect(img, p.x + r_(4), y - r_(11), r_(3), r_(2), p.flag) end
       end
     end
     -- light shafts from the roof
@@ -130,7 +159,7 @@ local function buildCrowd(w, h)
       for x = 0, w - 1 do
         local I = 0
         for _, bm in ipairs(beams) do
-          local spread = 10 + y * 0.9
+          local spread = 10 * L + y * 0.9
           local d = abs(x - bm.x) / spread
           if d < 1 then I = I + (1 - d) * bm.s * (0.5 + y / h) end
         end
@@ -147,9 +176,12 @@ local function buildCrowd(w, h)
   return frames
 end
 
--- Barrier boards: dark LED panels with a scrolling-sign look.
-local function buildBoards(w, h)
-  local cv = lg.newCanvas(w, h)
+-- Barrier boards: dark LED panels with a scrolling-sign look. Drawn with
+-- the design-unit helpers at layer scale L.
+local function buildBoards(L)
+  local w, h = 640, 12
+  gfx.setScale(L)
+  local cv = lg.newCanvas(floor(w * L + 0.5), floor(h * L + 0.5))
   cv:setFilter("nearest", "nearest")
   lg.setCanvas(cv)
   lg.clear(0, 0, 0, 0)
@@ -172,16 +204,18 @@ local function buildBoards(w, h)
   core.color(C.edge)
   gfx.rect(0, 0, w, 1)
   lg.setCanvas()
+  gfx.setScale(core.S)
   return cv
 end
 
 -- The arena floor in front of the barrier, lighter towards the piste.
-local function buildFloor(w, h)
+local function buildFloor(L)
+  local w, h = floor(240 * L + 0.5), floor(56 * L + 0.5)
   local img = love.image.newImageData(w, h)
   for y = 0, h - 1 do
     for x = 0, w - 1 do
       local c = C.floor
-      if y <= 12 and (x + y) % 2 == 0 and bayer(x, y) < y / 14 then c = C.floor2 end
+      if y <= 12 * L and (x + y) % 2 == 0 and bayer(x, y) < y / (14 * L) then c = C.floor2 end
       img:setPixel(x, y, c[1], c[2], c[3], 1)
     end
   end
@@ -190,17 +224,25 @@ local function buildFloor(w, h)
   return im
 end
 
+-- Build every layer for the current resolution (core.S). Background layers
+-- are made at 1x (240x160) or 1.5x (360x240) density and drawn at art.K
+-- (2 at 720x480, so the backdrop keeps its pixel-art grain).
 function art.init()
-  art.floor = buildFloor(core.W, core.H - 104)
+  local S = core.S
+  local L = (S == 1) and 1 or 1.5
+  art.L, art.K = L, (S >= 3) and 2 or 1
+  art.floor = buildFloor(L)
   local legend = {
-    k = C.ink, w = C.white, s = C.rim, m = C.mesh, h = C.meshL,
+    k = C.ink, w = C.white, s = C.rim, m = C.mesh, h = C.meshL, d = C.meshL, e = C.whiteS,
   }
-  art.mask = gfx.sprite(art.MASK, legend)
+  if S == 1 then
+    art.mask, art.maskO = gfx.sprite(art.MASK, legend), { 4, 5 }
+  else
+    art.mask, art.maskO = gfx.sprite(art.MASK360, legend), { 7, 7 }
+  end
   art.foils = gfx.sprite(art.FOILS, { b = C.blade, g = C.guard, k = C.ink })
-  art.crowdW, art.crowdH = 520, 76
-  art.crowd = buildCrowd(art.crowdW, art.crowdH)
-  art.boardsW = 640
-  art.boards = buildBoards(art.boardsW, 12)
+  art.crowd = buildCrowd(L)
+  art.boards = buildBoards(L)
 end
 
 return art

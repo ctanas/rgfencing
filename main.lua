@@ -76,6 +76,17 @@ end
 
 function app.current() return scene end
 
+-- Switch the render resolution: rebuild the canvas, the fonts' scale and
+-- every pre-rendered layer. The current scene carries on.
+function app.setResolution(i)
+  core.setRes(i)
+  gfx.setScale(core.S)
+  require("src.nations").clearCache()
+  require("src.art").init()
+  canvas = lg.newCanvas(core.CW, core.CH)
+  canvas:setFilter("nearest", "nearest")
+end
+
 function app.toTitle(sub)
   if not Profile.current() then
     require("src.profiles_ui").firstRun(app, function() app.toTitle() end)
@@ -103,6 +114,7 @@ function love.load(args)
   if shotName then
     core.testMode = true
     shot = {
+      bench = hasArg(args, "--bench"),
       name = shotName,
       mode = argValue(args, "--mode") or "title",
       frames = math.floor((tonumber(argValue(args, "--time")) or 1) * 60),
@@ -122,13 +134,12 @@ function love.load(args)
   else
     Profile.load()
   end
+  if argValue(args, "--res") then settings.data.res = tonumber(argValue(args, "--res")) end
   setupWindow(args)
   lg.setDefaultFilter("nearest", "nearest")
   gfx = require("src.gfx")
   gfx.init()
-  require("src.art").init()
-  canvas = lg.newCanvas(core.W, core.H)
-  canvas:setFilter("nearest", "nearest")
+  app.setResolution(settings.data.res)
   input.init(settings.data.swapab)
   audio.init(settings.data.sound and not shot, settings.data.crowd)
 
@@ -156,7 +167,11 @@ function love.draw()
   lg.setCanvas(canvas)
   lg.clear(core.C.night[1], core.C.night[2], core.C.night[3], 1)
   lg.setColor(1, 1, 1, 1)
+  local t0 = shot and shot.bench and love.timer.getTime()
   if scene then scene:draw() end
+  if t0 then
+    shot.benchT, shot.benchN = (shot.benchT or 0) + love.timer.getTime() - t0, (shot.benchN or 0) + 1
+  end
   if settings.data.fps then
     gfx.text(string.format("%d FPS", love.timer.getFPS()), core.W - 2, core.H - 9, core.C.yellow, "right", true)
   end
@@ -166,16 +181,20 @@ function love.draw()
   lg.setColor(1, 1, 1, 1)
 
   local ww, wh = lg.getDimensions()
-  local s = math.min(ww / core.W, wh / core.H)
+  local s = math.min(ww / core.CW, wh / core.CH)
   -- whole-number scale when it fills most of the screen, else exact fit
   if math.floor(s) >= 1 and math.floor(s) / s > 0.85 then s = math.floor(s) end
-  local ox, oy = math.floor((ww - core.W * s) / 2), math.floor((wh - core.H * s) / 2)
+  local ox, oy = math.floor((ww - core.CW * s) / 2), math.floor((wh - core.CH * s) / 2)
   lg.draw(canvas, ox, oy, 0, s, s)
 
   if shot then
     shot.frames = shot.frames - 1
     if shot.frames <= 0 then
       local file = shot.name .. ".png"
+      if shot.benchN then
+        print(string.format("bench: %.2f ms per frame drawing the scene (%d frames, %dx%d)",
+          1000 * shot.benchT / shot.benchN, shot.benchN, core.CW, core.CH))
+      end
       if shot.filmDone then
         shot.filmDone()
         print("saved " .. love.filesystem.getSaveDirectory() .. "/" .. file)

@@ -135,6 +135,9 @@ function T.new(app, sub)
       left = toggle("assist"), right = toggle("assist") },
     { label = "PISTE SIDE", value = function() return d.side == 1 and "LEFT · RED" or "RIGHT · GREEN" end,
       left = function() d.side = 3 - d.side end, right = function() d.side = 3 - d.side end },
+    { label = "RESOLUTION", value = function() return core.RES[d.res].name end,
+      left = function() d.res = (d.res - 2) % 3 + 1; app.setResolution(d.res) end,
+      right = function() d.res = d.res % 3 + 1; app.setResolution(d.res) end },
     { label = "SWAP A/B", value = function() return onoff(d.swapab) end,
       left = toggle("swapab", function(v) input.swapAB = v end), right = toggle("swapab", function(v) input.swapAB = v end) },
     { label = "SHOW FPS", value = function() return onoff(d.fps) end,
@@ -160,6 +163,7 @@ local OPT_INFO = {
   "CROWD NOISE AND CHEERS",
   "PRIORITY MARKER, ATTACK LINE ARROW, DISTANCE COLOUR",
   "THE END OF THE PISTE YOU FENCE FROM",
+  "CHUNKY 240×160 PIXELS, FINER 360×240, OR FULL 720×480",
   "FOR PADS THAT LABEL A AND B THE OTHER WAY ROUND",
   "FRAMES PER SECOND IN THE CORNER",
   "",
@@ -174,17 +178,17 @@ function T:draw()
 
   -- logo
   local lx = W / 2
-  lg.setColor(1, 1, 1, 1)
-  lg.draw(art.foils, lx - 100, 10, 0, 2, 2)
-  lg.draw(art.foils, lx + 68, 10, 0, 2, 2)
+  local fk = math.floor(2 * core.S + 0.5)
+  gfx.img(art.foils, lx - 100, 10, fk)
+  gfx.img(art.foils, lx + 68, 10, fk)
   gfx.text("RG", lx, 7, C.yellow, "center", true)
   gfx.text("FENCING", lx + 1, 18, C.text, "center", true, 3)
-  gfx.text("FOIL · RIGHT OF WAY", lx, 43, C.dim, "center", true)
+  if self.mode == "main" then gfx.text("FOIL · RIGHT OF WAY", lx, 43, C.dim, "center", true) end
 
   local m = self[self.mode]
   local rows = #m.items
   local w = self.mode == "main" and 104 or 176
-  local x, y = math.floor((W - w) / 2), self.mode == "main" and 56 or 53
+  local x, y = math.floor((W - w) / 2), self.mode == "main" and 56 or 43
   local title = (self.mode == "quick" and "QUICK BOUT") or (self.mode == "options" and "OPTIONS") or nil
   if title then
     gfx.panel(x - 4, y - 2, w + 8, rows * m.rowH + 16)
@@ -212,7 +216,7 @@ function T:draw()
   local p = Profile.current()
   if p then
     local nw = gfx.textWidth(p.name)
-    Nations.drawFlag(p.nation, W - 4 - nw - 14, 3)
+    Nations.drawFlag(p.nation, W - 4 - nw - Nations.flagW() - 3, 3)
     gfx.text(p.name, W - 4, 4, C.text, "right", true)
   end
   if self.mode == "main" then

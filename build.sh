@@ -132,7 +132,7 @@ build_shots() {
     mkdir -p "$ROOT/screenshots"
     run_shot() {
         local name="$1"; shift
-        (cd "$ROOT" && "$love" . --shot "$name" "$@" >/dev/null)
+        (cd "$ROOT" && "$love" . --shot "$name" --res 2 "$@" >/dev/null)
     }
     run_shot title --mode title --time 4
     run_shot lunge --mode pose --pose lunge,parry --gap 2.15 --time 0.6
@@ -147,6 +147,9 @@ build_shots() {
     run_shot profile --mode profile --time 0.5
     run_shot keyboard --mode keyboard --time 0.5
     run_shot bout --mode film --act bout --every 2 --start 1.2 --dur 7 --seed 21
+    for r in 1 2 3; do
+        (cd "$ROOT" && "$love" . --shot "res$r" --res "$r" --mode pose --pose lunge,parry --gap 2.15 --time 0.6 >/dev/null)
+    done
     local dir
     case "$(uname)" in
         Darwin) dir="$HOME/Library/Application Support/LOVE/rgfencing" ;;
@@ -155,14 +158,20 @@ build_shots() {
     for f in title lunge decision lockout salute pool bracket drill training quick profile keyboard; do
         cp "$dir/$f.png" "$ROOT/screenshots/$f.png"
     done
-    # the animated bout clip (needs Python 3 with Pillow)
-    python3 - "$dir" "$ROOT/screenshots/bout.gif" <<'PY'
+    # the animated bout clip and the resolution comparison (needs Python 3 with Pillow)
+    python3 - "$dir" "$ROOT/screenshots" <<'PY'
 import glob, sys
 from PIL import Image
 src, out = sys.argv[1], sys.argv[2]
 fr = [Image.open(f).convert("RGB") for f in sorted(glob.glob(src + "/bout_[0-9][0-9][0-9].png"))]
-fr = [f.resize((f.width * 2, f.height * 2), Image.NEAREST).quantize(colors=96, method=Image.MEDIANCUT) for f in fr]
-fr[0].save(out, save_all=True, append_images=fr[1:], duration=33, loop=0, optimize=True)
+k = 720 // fr[0].width
+fr = [f.resize((f.width * k, f.height * k), Image.NEAREST).quantize(colors=96, method=Image.MEDIANCUT) for f in fr]
+fr[0].save(out + "/bout.gif", save_all=True, append_images=fr[1:], duration=33, loop=0, optimize=True)
+crops = [Image.open(src + "/res%d.png" % r).convert("RGB").crop((190, 200, 550, 400)) for r in (1, 2, 3)]
+sheet = Image.new("RGB", (360 * 3 + 8, 200), (21, 17, 28))
+for i, c in enumerate(crops):
+    sheet.paste(c, (i * 364, 0))
+sheet.save(out + "/resolutions.png")
 PY
     echo "Screenshots in screenshots/"
 }
