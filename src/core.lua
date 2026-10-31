@@ -1,7 +1,7 @@
 -- Shared constants, palette and small helpers used by every module.
 
 local core = {
-  VERSION = "0.2.0",
+  VERSION = "0.2.1",
   W = 240,           -- logical pixel canvas, shown x3 on the 720x480 panel
   H = 160,
   PPM = 30,          -- pixels per metre on the piste
@@ -36,7 +36,7 @@ core.C = {
   white = hex"f3efe6", whiteS = hex"c9c5d4", whiteD = hex"98949f",
   lame = hex"8d9bb6", lameL = hex"d4dded", lameD = hex"5f6a86",
   mesh = hex"2a2a35", meshL = hex"4d4d5e", rim = hex"8d93a3",
-  shoe = hex"2c2836",
+  shoe = hex"2c2836", cable = hex"6a6580",
   blade = hex"e2e8f0", bladeD = hex"8b94a6", guard = hex"c3cad6",
   red = hex"e2484a", redD = hex"8f2633", redL = hex"ff9582",
   green = hex"3cc46b", greenD = hex"1f7442", greenL = hex"a0f2b0",

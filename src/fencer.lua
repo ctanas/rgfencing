@@ -205,7 +205,7 @@ function F:regionAt(wx, wy)
   local dx, dy = lx - j.hipx, ly - j.hipy
   local s = (dx * sl + dy * cl) / TORSO
   local t = dx * cl - dy * sl
-  if s >= -0.06 and s <= 0.95 and t >= -0.13 and t <= 0.14 then return "valid" end
+  if s >= -0.02 and s <= 0.95 and t >= -0.13 and t <= 0.14 then return "valid" end
   -- mask
   local hx, hy = lx - j.headx, ly - j.heady
   if hx * hx + hy * hy <= 0.15 * 0.15 then return "off" end

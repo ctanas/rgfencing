@@ -68,7 +68,9 @@ game alone is `dist/rgfencing.love`.
 
 Keyboard (desktop): arrows, Z = A, X = B, C = X, V = Y, Q/E = L1/R1, Enter = Start, Esc = Select.
 
-You are always the left fencer (red). A parry in your current guard line lasts
+You fence from the left (red) end of the piste, or from the right (green) with
+**Options → Piste side**; it applies to quick bouts, the career and the training
+drills (which mirror). A parry in your current guard line lasts
 longer than one in the other line. With **Options → Assists** on (the default),
 a yellow ▼ marks the fencer with priority, an orange arrow shows the line of an
 incoming attack, and the distance readout turns yellow, then orange, once a
@@ -109,7 +111,8 @@ lunge can reach.
 Every halt ends with the referee's call (*ATTACK FROM THE LEFT · TOUCH LEFT*,
 *PARRY-RIPOSTE FROM THE RIGHT*, *SIMULTANEOUS ATTACKS · NO TOUCH*...) and a line
 that explains it (*COUNTERATTACK NOT IN TIME*, *THE RIPOSTE BEATS THE REMISE*,
-*ONLY THE TRUNK IS VALID IN FOIL*...). The referee signals it too.
+*ONLY THE TRUNK IS VALID IN FOIL*...). The referee signals it too, and the
+new score glows in the scorer's colour.
 
 ## Profiles
 
@@ -135,13 +138,16 @@ Pick the opponent's level and style and the bout length (5, 10 or 15 touches).
 
 ### Career
 
-Choose women's or men's foil, then work up a ladder of six competitions. Each
-is run like a real event: two pools of six (bouts to 5, in the FIE bout order),
-a ranking by victories/matches, indicator and touches scored, then a direct
-elimination table of 8. You fence your own bouts; the others are simulated from
-the fencers' ratings. A medal (top 3) unlocks the next competition. The career
-is saved after every bout; you can leave a bout from the pause menu and fence
-it later.
+Work up a ladder of six competitions. Each is run like a real event: two pools
+of six (bouts to 5, in the FIE bout order), a ranking by victories/matches,
+indicator and touches scored, then a direct elimination table of 8. You fence
+your own bouts; the others are simulated from the fencers' ratings. A medal
+(top 3) unlocks the next competition. The career is saved after every bout; you
+can leave a bout from the pause menu and fence it later.
+
+Fencers go by one name, as on a fencing scoreboard. One of them is a familiar
+face: **Dărăban** of Romania is the top seed of every competition, so you meet
+him in your pool each time, and now and then in a quick bout.
 
 | Competition | Opponents | DE bouts to |
 |---|---|---|
@@ -209,6 +215,10 @@ momentum and follow-through, not any one game's frames.
   it flat; a balestra crouches before it leaps.
 - **Alive on guard:** a light bounce in the knees, breathing, and the point
   circling. A parry snaps through with a slight overshoot.
+- **The body wire** hangs from a clip on the back of the jacket to the reel at
+  the end of the piste, held taut by the reel's spring: retreating towards the
+  reel gives it a little slack, advancing pulls it tight, and sudden moves leave
+  a small wobble.
 - **Between touches** the fencers stand up, turn round and walk back to their
   lines with a real stride and swinging arms, then step back into guard on
   *En garde!*.
@@ -225,7 +235,9 @@ Everything is drawn in a 240×160 canvas and scaled ×3 to fill the 720×480 pan
 (the largest whole scale fitting other screens). Nothing is loaded from files:
 
 - **Fencers** are rasterised every frame from their skeleton: each limb is a filled
-  quad with a 1-pixel ink outline, drawn back to front, with far limbs shaded. So
+  quad with a 1-pixel ink outline, drawn back to front, with far limbs shaded. The
+  hips and front leg are outlined as one silhouette and the jacket's hem overlaps
+  them, so the leg grows out of the body instead of being stuck on. So
   the art always matches the geometry the rules use: the lamé you see is exactly
   the target, and the blade bends where it hit. The legs use two-bone IK.
 - **Hand-drawn** pixel sprites: the fencing mask, the title's crossed foils, the

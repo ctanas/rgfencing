@@ -175,6 +175,7 @@ end
 function S.start(app, shot)
   local args = shot.args
   local mode = shot.mode
+  if argValue(args, "--side") then require("src.settings").data.side = tonumber(argValue(args, "--side")) end
   if mode == "film" then return film(app, shot, argValue(args, "--act") or "idle") end
   if mode == "bout" or mode == "demo" then
     local lvl = tonumber(argValue(args, "--level")) or 3

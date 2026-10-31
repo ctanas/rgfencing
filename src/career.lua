@@ -66,9 +66,15 @@ function CA.newEvent(idx)
   local E = CA.EVENTS[idx]
   local used = {}
   local me, nation = Profile.fencer()
-  local field = { { first = "", last = me, nation = nation, rating = 0, you = true } }
-  for _ = 1, 11 do
-    local n = Names.random(save.gender, nil, used)
+  local field = { { last = me, nation = nation, rating = 0, you = true } }
+  -- the recurring rivals, seeded at the top of the field
+  for _, r in ipairs(Names.RIVALS) do
+    used[r.last] = true
+    field[#field + 1] = { last = r.last, nation = r.nation, style = r.style,
+      rating = E.hi + 0.1 * rnd() }
+  end
+  for _ = #field, 11 do
+    local n = Names.random(nil, nil, used)
     n.rating = E.lo + (E.hi - E.lo) * rnd()
     n.style = AI.STYLE_ORDER[love.math.random(1, #AI.STYLE_ORDER)]
     field[#field + 1] = n
@@ -293,16 +299,20 @@ function CA.fence(app, oppId, touches, onDone)
   local E = CA.EVENTS[ev.idx]
   local title = E.name
   local me, nation = Profile.fencer()
+  local side = settings.data.side
+  local player = { name = me, nation = nation, human = true, ctl = Ctl.human(input) }
+  local opp = { name = o.last, nation = o.nation, ctl = ai, spd = ai.spd }
   app.set(Play.new(app, {
-    left = { name = me, nation = nation, human = true, ctl = Ctl.human(input) },
-    right = { name = o.last, nation = o.nation, ctl = ai, spd = ai.spd },
+    left = (side == 1) and player or opp,
+    right = (side == 1) and opp or player,
     touches = touches,
     title = title,
     quitLabel = "LEAVE (FENCE LATER)",
     onQuit = function() CA.eventScreen(app) end,
     onFinish = function(b)
-      Profile.recordBout(b.score[1] > b.score[2], b.score[1], b.score[2])
-      onDone(b.score[1], b.score[2])
+      local sa, sb = b.score[side], b.score[3 - side]
+      Profile.recordBout(sa > sb, sa, sb)
+      onDone(sa, sb)
     end,
   }))
 end
@@ -518,7 +528,7 @@ function CA.eventScreen(app)
       if opp then
         local o = ev.field[opp]
         gfx.text(string.format("BOUT %d OF 5", done + 1), 8, 112, C.dim)
-        gfx.text("NEXT: " .. o.first .. " " .. o.last .. " " .. o.nation, 8, 123, C.text)
+        gfx.text("NEXT: " .. o.last .. " " .. o.nation, 8, 123, C.text)
         gfx.text("STYLE: " .. AI.STYLE_NAME[o.style], 8, 133, C.dim)
       else
         gfx.text("YOUR POOL IS DONE", 8, 118, C.text)
@@ -563,22 +573,9 @@ end
 function CA.hub(app)
   if not save then CA.load() end
   if not save then
-    -- a new career: choose the event category
-    local m = Menu.new({
-      { label = "WOMEN'S FOIL", action = function() save = { v = 1, gender = "f", best = {}, medals = {} }; CA.write(); CA.hub(app) end },
-      { label = "MEN'S FOIL", action = function() save = { v = 1, gender = "m", best = {}, medals = {} }; CA.write(); CA.hub(app) end },
-      { label = "BACK", action = function() app.toTitle() end },
-    }, { back = function() app.toTitle() end })
-    local s = {}
-    function s:update() m:update() end
-    function s:draw()
-      frame("NEW CAREER")
-      gfx.para("Six competitions, from your club's open to the World Championships. Win a medal to move up.", 16, 28, W - 32, C.text)
-      gfx.text("YOUR CATEGORY", W / 2, 70, C.dim, "center")
-      m:draw(W / 2 - 60, 82, 120)
-    end
-    app.set(s)
-    return
+    -- a new career starts straight at the first competition
+    save = { v = 1, best = {}, medals = {} }
+    CA.write()
   end
   local items = {}
   if save.ev then
@@ -604,7 +601,7 @@ function CA.hub(app)
   local s = {}
   function s:update() m:update() end
   function s:draw()
-    frame("CAREER", save.gender == "f" and "WOMEN'S FOIL" or "MEN'S FOIL")
+    frame("CAREER", "A MEDAL UNLOCKS THE NEXT COMPETITION")
     local hint = m:draw(8, 28, W - 16)
     for i = 1, #CA.EVENTS do
       local b = save.best[i]
@@ -624,7 +621,7 @@ function CA._setSave(s) save = s end
 
 -- Screenshots of the career screens with a simulated event.
 function CA.shot(app, mode, args)
-  save = { v = 1, gender = "f", best = { 1, 3 }, medals = { gold = 1, bronze = 1 } }
+  save = { v = 1, best = { 1, 3 }, medals = { gold = 1, bronze = 1 } }
   core.testMode = true
   if mode == "career" then
     CA.hub(app)

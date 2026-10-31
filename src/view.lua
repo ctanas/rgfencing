@@ -10,6 +10,7 @@ local art = require("src.art")
 local settings = require("src.settings")
 local Fencer = require("src.fencer")
 local Nations = require("src.nations")
+local Bout = require("src.bout")
 
 local lg = love.graphics
 local floor, max, min, abs, sin, cos, sqrt = math.floor, math.max, math.min, math.abs, math.sin, math.cos, math.sqrt
@@ -46,31 +47,49 @@ local function quad(x1, y1, x2, y2, h1, h2, ext)
 end
 
 -- A limb through joints p (x1,y1,x2,y2,x3,y3) with widths w (px).
-local function limb(p, w, col)
+-- pass: "ink" (outline only), "fill" (colour only) or nil (both). Drawing
+-- the outlines of several parts before any of their fills joins them into
+-- one silhouette, with no seam where they meet.
+local function limb(p, w, col, pass)
   local n = #p / 2
-  core.color(C.ink)
-  for k = 1, n - 1 do
-    quad(p[2 * k - 1], p[2 * k], p[2 * k + 1], p[2 * k + 2], w[k] / 2 + 1, w[k + 1] / 2 + 1, 1)
+  if pass ~= "fill" then
+    core.color(C.ink)
+    for k = 1, n - 1 do
+      quad(p[2 * k - 1], p[2 * k], p[2 * k + 1], p[2 * k + 2], w[k] / 2 + 1, w[k + 1] / 2 + 1, 1)
+    end
+    for k = 2, n - 1 do lg.circle("fill", p[2 * k - 1], p[2 * k], w[k] / 2 + 1, 8) end
   end
-  for k = 2, n - 1 do lg.circle("fill", p[2 * k - 1], p[2 * k], w[k] / 2 + 1, 8) end
-  core.color(col)
-  for k = 1, n - 1 do
-    quad(p[2 * k - 1], p[2 * k], p[2 * k + 1], p[2 * k + 2], w[k] / 2, w[k + 1] / 2, 0)
+  if pass ~= "ink" then
+    core.color(col)
+    for k = 1, n - 1 do
+      quad(p[2 * k - 1], p[2 * k], p[2 * k + 1], p[2 * k + 2], w[k] / 2, w[k + 1] / 2, 0)
+    end
+    for k = 2, n - 1 do lg.circle("fill", p[2 * k - 1], p[2 * k], w[k] / 2, 8) end
   end
-  for k = 2, n - 1 do lg.circle("fill", p[2 * k - 1], p[2 * k], w[k] / 2, 8) end
 end
 
-local function outlinedPoly(pts, col)
-  core.color(C.ink)
-  for _, o in ipairs({ { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } }) do
-    lg.push()
-    lg.translate(o[1], o[2])
-    lg.polygon("fill", pts)
-    lg.pop()
+local function outlinedPoly(pts, col, pass)
+  if pass ~= "fill" then
+    core.color(C.ink)
+    for _, o in ipairs({ { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } }) do
+      lg.push()
+      lg.translate(o[1], o[2])
+      lg.polygon("fill", pts)
+      lg.pop()
+    end
   end
-  core.color(col)
-  lg.polygon("fill", pts)
+  if pass ~= "ink" then
+    core.color(col)
+    lg.polygon("fill", pts)
+  end
 end
+
+-- Body shapes in the trunk's frame: s along the trunk (in trunk lengths,
+-- 0 = hip joint), t across it (metres, + = forward).
+local PELVIS = { { 0.20, 0.12 }, { 0.02, 0.135 }, { -0.10, 0.09 }, { -0.15, -0.02 },
+  { -0.10, -0.14 }, { 0.05, -0.17 }, { 0.20, -0.15 } }
+local JACKET = { { 0.02, -0.15 }, { -0.03, 0.13 }, { 0.55, 0.17 }, { 0.98, 0.09 }, { 1.0, -0.09 }, { 0.5, -0.15 } }
+local LAME = { { 0.04, -0.13 }, { 0.0, 0.12 }, { 0.55, 0.15 }, { 0.86, 0.10 }, { 0.86, -0.10 }, { 0.5, -0.13 } }
 
 ---------------------------------------------------------------------------
 -- Arena
@@ -171,27 +190,41 @@ local function drawReels(b)
   end
 end
 
--- The body cord runs from the fencer's back, sags to the floor and goes
--- off to the reel at the end of the piste.
-local function drawCord(b, f)
+-- The body wire runs from a clip on the back of the jacket to the reel at
+-- the end of the piste. The reel's spring keeps it under tension, so it
+-- hangs in a shallow curve; its extra slack (b.cordSag, a spring driven by
+-- how fast the fencer moves towards or away from the reel) adds a little
+-- give when retreating and a wobble after sudden moves.
+local function drawCord(b, f, i)
   local j = f.j
-  local face = (f.vface or f.face) < 0 and -1 or 1
-  local bx = floor(screenX(b, f.x) + 0.5) + face * (-0.13) * PPM
-  local by = GROUND - (j.hipy + 0.20) * PPM
-  local fx = screenX(b, f.x - face * 0.75)
-  local fy = GROUND + 3
-  local rx = screenX(b, -f.homeFace * (core.RUNOFF + 0.2))
-  core.color(C.ink)
-  local px, py = bx, by
-  for k = 1, 6 do
-    local t = k / 6
-    local x = (1 - t) * (1 - t) * bx + 2 * (1 - t) * t * (bx - face * 3) + t * t * fx
-    local y = (1 - t) * (1 - t) * by + 2 * (1 - t) * t * (fy + 3) + t * t * fy
-    gfx.line(px, py, x, y)
-    px, py = x, y
+  local home = f.homeFace
+  local ox = floor(screenX(b, f.x) + 0.5)
+  -- the clip, on the side of the body facing the reel
+  local ax = ox - home * (0.13 + 0.12 * math.sin(j.lean)) * PPM
+  local ay = GROUND - (j.hipy + 0.18) * PPM
+  -- the reel's exit
+  local rx, ry = persp(b, -home * (core.RUNOFF + 0.4), FAR - 2), FAR - 7
+  local span = abs(rx - ax)
+  local slack = b.cordSag and b.cordSag[i] and b.cordSag[i][1] or 0
+  local sag = max(1, 2 + span * 0.03 + slack)
+  local floorY = GROUND + 3
+  local n = math.max(6, math.min(24, floor(span / 8)))
+  -- a parabola is a good enough catenary for a cable this tight; where
+  -- the slack would take it below the floor, it rests on the floor
+  local pts = { ax, ay }
+  for k = 1, n do
+    local t = k / n
+    pts[#pts + 1] = ax + (rx - ax) * t
+    pts[#pts + 1] = min(ay + (ry - ay) * t + sag * 4 * t * (1 - t), floorY)
   end
-  gfx.line(fx, fy, rx, fy)
-  gfx.line(rx, fy, rx, FAR - 4)
+  -- grey rubber with a dark underside, so it reads on any background
+  for pass = 1, 2 do
+    core.color(pass == 1 and C.ink or C.cable)
+    local dy = (pass == 1) and 1 or 0
+    for k = 1, #pts - 2, 2 do
+      gfx.line(pts[k], pts[k + 1] + dy, pts[k + 2], pts[k + 3] + dy)
+    end
+  end
 end
 
 ---------------------------------------------------------------------------
@@ -298,6 +331,21 @@ function V.fencer(b, f)
   local a3x, a3y = P(j.bhx, j.bhy)
   limb({ a1x, a1y, a2x, a2y, a3x, a3y }, { 3.4, 3, 2.4 }, C.whiteS)
 
+  -- the trunk's frame
+  local sl, cl = sin(j.lean), cos(j.lean)
+  local T = Fencer.TORSO
+  local function TP(s, t)
+    return P(j.hipx + sl * s * T + cl * t, j.hipy + cl * s * T - sl * t)
+  end
+  local function shape(list)
+    local pts = {}
+    for _, st in ipairs(list) do
+      local x, y = TP(st[1], st[2])
+      pts[#pts + 1], pts[#pts + 2] = x, y
+    end
+    return pts
+  end
+
   -- back leg
   local hx, hy = P(-0.03, j.hipy)
   local kx, ky = P(j.bkx, j.bky)
@@ -305,32 +353,29 @@ function V.fencer(b, f)
   limb({ hx, hy, kx, ky, fx, fy }, { 5.4, 4, 3 }, C.whiteS)
   shoe(fx, fy, sgn, (f.legs == "fleche" or f.legs == "walk") and 5 or 3, f.bfp or 0, C.shoe)
 
-  -- hips
-  local px, py = P(0, j.hipy)
-  core.color(C.ink)
-  lg.circle("fill", px, py, 4.2, 10)
-  core.color(C.white)
-  lg.circle("fill", px, py, 3.2, 10)
+  -- the pelvis (breeches) and the front leg as one silhouette: both
+  -- outlines first, then both fills, so the thigh flows out of the hips
+  local pelvis = shape(PELVIS)
+  hx, hy = P(0.03, j.hipy)
+  kx, ky = P(j.fkx, j.fky)
+  fx, fy = P(j.ffx, j.ffy)
+  local leg, legw = { hx, hy, kx, ky, fx, fy }, { 5.4, 4.2, 3.2 }
+  outlinedPoly(pelvis, C.white, "ink")
+  limb(leg, legw, C.white, "ink")
+  outlinedPoly(pelvis, C.white, "fill")
+  limb(leg, legw, C.white, "fill")
+  -- a touch of shade under the seat
+  core.color(C.whiteS)
+  local s1x, s1y = TP(-0.12, -0.13)
+  local s2x, s2y = TP(-0.14, -0.02)
+  gfx.line(s1x, s1y, s2x, s2y)
+  shoe(fx, fy, sgn, 5, f.ffp or 0, C.shoe)
 
-  -- trunk: jacket, then the lamé (the valid target)
-  local sl, cl = sin(j.lean), cos(j.lean)
-  local T = Fencer.TORSO
-  local function TP(s, t)
-    return P(j.hipx + sl * s * T + cl * t, j.hipy + cl * s * T - sl * t)
-  end
-  local pts = {}
-  for _, st in ipairs({ { -0.08, -0.13 }, { -0.08, 0.13 }, { 0.55, 0.17 }, { 0.98, 0.09 }, { 1.0, -0.09 }, { 0.5, -0.15 } }) do
-    local x, y = TP(st[1], st[2])
-    pts[#pts + 1], pts[#pts + 2] = x, y
-  end
-  outlinedPoly(pts, C.white)
-  local lp = {}
-  for _, st in ipairs({ { -0.05, -0.11 }, { -0.05, 0.12 }, { 0.55, 0.15 }, { 0.86, 0.10 }, { 0.86, -0.10 }, { 0.5, -0.13 } }) do
-    local x, y = TP(st[1], st[2])
-    lp[#lp + 1], lp[#lp + 2] = x, y
-  end
+  -- trunk on top: the jacket's hem overlaps the top of the breeches and
+  -- thigh, then the lamé (the valid target)
+  outlinedPoly(shape(JACKET), C.white)
   core.color(C.lame)
-  lg.polygon("fill", lp)
+  lg.polygon("fill", shape(LAME))
   core.color(C.lameL)
   local l1x, l1y = TP(0.12, 0.10)
   local l2x, l2y = TP(0.70, 0.11)
@@ -343,13 +388,6 @@ function V.fencer(b, f)
   core.color(side.col)
   local cx, cy = TP(0.93, -0.06)
   gfx.rect(cx - 1, cy, 2, 1)
-
-  -- front leg
-  hx, hy = P(0.03, j.hipy)
-  kx, ky = P(j.fkx, j.fky)
-  fx, fy = P(j.ffx, j.ffy)
-  limb({ hx, hy, kx, ky, fx, fy }, { 5.6, 4.2, 3.2 }, C.white)
-  shoe(fx, fy, sgn, 5, f.ffp or 0, C.shoe)
 
   -- mask
   local mx, my = P(j.headx, j.heady)
@@ -378,11 +416,16 @@ function V.blade(b, f)
   local L = Fencer.BLADE * PPM
   local tx, ty
   local path = {}
+  local bent = false
   if f.hit and f.opp then
-    -- the blade bends against the target
+    -- the blade bends against the target, but only while the point is
+    -- still there (a bend shortens the blade, it never stretches it)
     local o = f.opp
     tx = screenX(b, o.x + o.face * f.hit.lx)
     ty = GROUND - f.hit.ly * PPM
+    bent = (tx - hx) ^ 2 + (ty - hy) ^ 2 <= (L * 1.02) ^ 2
+  end
+  if bent then
     local qx, qy = hx + dx * L * 0.55, hy + dy * L * 0.55
     for k = 0, 8 do
       local t = k / 8
@@ -457,6 +500,38 @@ local function lamp(x, y, w, h, col, lit)
   end
 end
 
+-- A score digit: a new score flashes white-hot, then fades back to normal
+-- through a halo in the scorer's colour.
+local function scoreText(b, i, s, x, align)
+  local g = b.scoreGlow and b.scoreGlow[i] or 0
+  local scale = 2
+  local w = gfx.textWidth(s, scale)
+  local lx = (align == "right") and (x - w) or x
+  local y = 2 - 2 * scale
+  if g > 0 then
+    local k = g / Bout.GLOW
+    local pulse = k ^ 0.7 * (0.8 + 0.2 * sin(core.time * 18))
+    local col = core.SIDE[i].col
+    for r = 2, 1, -1 do
+      lg.setColor(col[1], col[2], col[3], pulse * (r == 2 and 0.28 or 0.6))
+      for dy = -r, r do
+        for dx = -r, r do
+          if (dx ~= 0 or dy ~= 0) and abs(dx) + abs(dy) <= r + (r == 2 and 1 or 0) then
+            lg.print(s, floor(lx + dx), floor(y + dy), 0, scale, scale)
+          end
+        end
+      end
+    end
+    -- white-hot at first, cooling to the normal colour
+    local t, hot = C.text, C.lampW
+    local h = k ^ 1.5
+    lg.setColor(core.lerp(t[1], hot[1], h), core.lerp(t[2], hot[2], h), core.lerp(t[3], hot[3], h), 1)
+  else
+    core.color(C.text)
+  end
+  lg.print(s, floor(lx), floor(y), 0, scale, scale)
+end
+
 function V.topBar(b)
   core.color(C.ink)
   gfx.rect(0, 0, W, TOPBAR)
@@ -478,9 +553,8 @@ function V.topBar(b)
   gfx.text(n2, W - 3 - fw2, 10, C.greenL, "right")
   -- score
   if not b.o.drill then
-    local s1, s2 = tostring(b.score[1]), tostring(b.score[2])
-    gfx.text(s1, W / 2 - 17, 2, C.text, "right", false, 2)
-    gfx.text(s2, W / 2 + 18, 2, C.text, "left", false, 2)
+    scoreText(b, 1, tostring(b.score[1]), W / 2 - 17, "right")
+    scoreText(b, 2, tostring(b.score[2]), W / 2 + 18, "left")
   end
   -- clock
   if not b.o.noClock then
@@ -607,7 +681,7 @@ function V.draw(b)
     core.color(col, 0.10)
     gfx.rect(0, TOPBAR, W, BOTBAR - TOPBAR)
   end
-  for i = 1, 2 do drawCord(b, b.f[i]) end
+  for i = 1, 2 do drawCord(b, b.f[i], i) end
   -- the fencer further forward in an exchange is drawn last
   local order = { 1, 2 }
   if b.f[1].legs == "lunge" or b.f[1].legs == "fleche" then order = { 2, 1 } end

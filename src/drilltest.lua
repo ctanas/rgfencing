@@ -16,7 +16,7 @@ local function student(think)
   return c
 end
 
-local function gap(b) return b.f[2].x - b.f[1].x end
+local function gap(b) return math.abs(b.f[2].x - b.f[1].x) end
 local function reach() return Fencer.measure().lunge + 0.10 end
 local function idle(me) return me.legs == "guard" and me.arm == "guard" end
 
@@ -25,11 +25,10 @@ local STUDENTS = {
   -- 1 footwork: walk the front foot to each zone
   function(self, b, i, me, op, now)
     local d = b.o.drill
-    local z = d.zones[d.count + 1]
+    local z = d:zoneX(d.count + 1)
     if not z or #self.sched > 0 then return end
-    local front = math.max(me.ffx, me.bfx)
-    if math.abs(front - z) > 0.12 and me.legs == "guard" then
-      self:move(z > front and 1 or -1, 0.06, now)
+    if math.abs(me.ffx - z) > 0.12 and me.legs == "guard" then
+      self:move(((z - me.ffx) * me.face > 0) and 1 or -1, 0.06, now)
     end
   end,
   -- 2 lunge: close in, lunge
@@ -100,10 +99,11 @@ local STUDENTS = {
 T._students = STUDENTS
 
 function T.run()
-  print("drills, scripted student (60 s each):")
+  for side = 1, 2 do
+  print(string.format("drills from the %s, scripted student (60 s each):", side == 1 and "left" or "right"))
   for n, def in ipairs(TR.DRILLS) do
     love.math.setRandomSeed(n)
-    local opts, d = TR.setup(n, student(STUDENTS[n]))
+    local opts, d = TR.setup(n, student(STUDENTS[n]), side)
     opts.silent = true
     local b = Bout.new(opts)
     TR.place(b, n)
@@ -123,6 +123,7 @@ function T.run()
     table.sort(list)
     print(string.format("%d %-14s %s %d/%d in %4.1f s   %s", n, def.name, d.done and "DONE" or "----",
       d.count, def.goal, t, table.concat(list, ", ")))
+  end
   end
 end
 

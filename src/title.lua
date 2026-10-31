@@ -51,16 +51,20 @@ function T.startQuick(app)
   local function go()
     local style = d.qstyle == 1 and AI.STYLE_ORDER[love.math.random(1, #AI.STYLE_ORDER)] or AI.STYLE_ORDER[d.qstyle - 1]
     local ai = AI.new(d.qlevel, style)
-    local nm = Names.random()
+    -- now and then a familiar face
+    local nm = (love.math.random() < 0.15) and Names.RIVALS[love.math.random(1, #Names.RIVALS)] or Names.random()
     local me, nation = Profile.fencer()
+    local side = d.side
+    local player = { name = me, nation = nation, human = true, ctl = Ctl.human(input) }
+    local opp = { name = nm.last, nation = nm.nation, ctl = ai, spd = ai.spd }
     app.set(Play.new(app, {
-      left = { name = me, nation = nation, human = true, ctl = Ctl.human(input) },
-      right = { name = nm.last, nation = nm.nation, ctl = ai, spd = ai.spd },
+      left = (side == 1) and player or opp,
+      right = (side == 1) and opp or player,
       touches = touches,
       title = "QUICK BOUT",
       restart = go,
       onFinish = function(b)
-        Profile.recordBout(b.winner == 1, b.score[1], b.score[2])
+        Profile.recordBout(b.winner == side, b.score[side], b.score[3 - side])
         app.toTitle("quick")
       end,
     }))
@@ -129,12 +133,14 @@ function T.new(app, sub)
       left = toggle("crowd", function(v) audio.crowd = v end), right = toggle("crowd", function(v) audio.crowd = v end) },
     { label = "ASSISTS", value = function() return onoff(d.assist) end,
       left = toggle("assist"), right = toggle("assist") },
+    { label = "PISTE SIDE", value = function() return d.side == 1 and "LEFT · RED" or "RIGHT · GREEN" end,
+      left = function() d.side = 3 - d.side end, right = function() d.side = 3 - d.side end },
     { label = "SWAP A/B", value = function() return onoff(d.swapab) end,
       left = toggle("swapab", function(v) input.swapAB = v end), right = toggle("swapab", function(v) input.swapAB = v end) },
     { label = "SHOW FPS", value = function() return onoff(d.fps) end,
       left = toggle("fps"), right = toggle("fps") },
     { label = "BACK", action = function() settings.save(); t.mode = "main" end },
-  }, { back = function() settings.save(); t.mode = "main" end })
+  }, { back = function() settings.save(); t.mode = "main" end, rowH = 10 })
 
   t.mode = sub or "main"
   if sub == "quick" then t.main.sel = 1 end
@@ -153,6 +159,7 @@ local OPT_INFO = {
   "SOUND EFFECTS",
   "CROWD NOISE AND CHEERS",
   "PRIORITY MARKER, ATTACK LINE ARROW, DISTANCE COLOUR",
+  "THE END OF THE PISTE YOU FENCE FROM",
   "FOR PADS THAT LABEL A AND B THE OTHER WAY ROUND",
   "FRAMES PER SECOND IN THE CORNER",
   "",
@@ -177,10 +184,10 @@ function T:draw()
   local m = self[self.mode]
   local rows = #m.items
   local w = self.mode == "main" and 104 or 176
-  local x, y = math.floor((W - w) / 2), 56
+  local x, y = math.floor((W - w) / 2), self.mode == "main" and 56 or 53
   local title = (self.mode == "quick" and "QUICK BOUT") or (self.mode == "options" and "OPTIONS") or nil
   if title then
-    gfx.panel(x - 4, y - 2, w + 8, rows * 12 + 16)
+    gfx.panel(x - 4, y - 2, w + 8, rows * m.rowH + 16)
     gfx.text(title, W / 2, y + 1, C.yellow, "center")
     m:draw(x, y + 12, w)
   else
@@ -199,7 +206,7 @@ function T:draw()
   elseif self.mode == "options" then
     info = OPT_INFO[m.sel]
   end
-  if info and info ~= "" then gfx.text(info, W / 2, H - 25, C.dim, "center", true) end
+  if info and info ~= "" then gfx.text(info, W / 2, H - 23, C.dim, "center", true) end
 
   -- the active fencer
   local p = Profile.current()

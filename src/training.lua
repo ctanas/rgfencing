@@ -32,7 +32,7 @@ local function coach(think, opts)
   return c
 end
 
-local function gapOf(b) return b.f[2].x - b.f[1].x end
+local function gapOf(b) return abs(b.f[2].x - b.f[1].x) end
 local function reachL() return Fencer.measure().lunge + 0.13 end
 
 ---------------------------------------------------------------------------
@@ -54,10 +54,9 @@ TR.DRILLS = {
     coach = function() return coach(function() end) end,
     step = function(d, b, h)
       if d.done or not b:live() then return end
-      local f = b.f[1]
-      local z = d.zones[d.count + 1]
-      local front = max(f.ffx, f.bfx)
-      if abs(front - z) < 0.18 and f.legs == "guard" then
+      local f = b.f[d.P]
+      local z = d:zoneX(d.count + 1)
+      if abs(f.ffx - z) < 0.18 and f.legs == "guard" then
         d.hold = (d.hold or 0) + h
         if d.hold > 0.25 then
           d.hold = 0
@@ -69,7 +68,7 @@ TR.DRILLS = {
     end,
     drawWorld = function(d, b, sx)
       if d.done then return end
-      local z = d.zones[d.count + 1]
+      local z = d:zoneX(d.count + 1)
       local x1, x2 = floor(sx(b, z - 0.18)), floor(sx(b, z + 0.18))
       local blink = floor(core.time * 4) % 2 == 0
       core.color(C.green, blink and 0.55 or 0.35)
@@ -95,13 +94,14 @@ TR.DRILLS = {
         self.nextMove = self.nextMove or now + 2
         if now >= self.nextMove then
           self.nextMove = now + 1.8 + rnd() * 2
-          local dir = (me.x > 3.6 and 1) or (me.x < 0.6 and -1) or (rnd() < 0.5 and 1 or -1)
+          local home = -me.x * me.face
+          local dir = (home > 3.6 and 1) or (home < 0.6 and -1) or (rnd() < 0.5 and 1 or -1)
           self:move(dir, 0.1, now)
         end
       end)
     end,
     judge = function(d, b, dec)
-      if dec.scorer == 1 then return true, "TOUCH!" end
+      if dec.scorer == d.P then return true, "TOUCH!" end
     end,
     short_msg = "TOO FAR: THE LUNGE FELL SHORT",
   },
@@ -129,17 +129,17 @@ TR.DRILLS = {
       end)
     end,
     onReset = function(d, b)
-      local c = b.f[2].ctl
+      local c = b.f[d.C].ctl
       c.guardLine = rnd() < 0.5 and "high" or "low"
     end,
     judge = function(d, b, dec)
-      if dec.scorer == 1 then return true, "INTO THE OPEN LINE!" end
+      if dec.scorer == d.P then return true, "INTO THE OPEN LINE!" end
     end,
     onParry = function(d, b, di)
-      if di == 2 then d:toast("PARRIED: GO FOR THE OPEN LINE") end
+      if di == d.C then d:toast("PARRIED: GO FOR THE OPEN LINE") end
     end,
     drawWorld = function(d, b, sx)
-      local f = b.f[2]
+      local f = b.f[d.C]
       local c = f.ctl
       if not c.guardLine or not b:live() then return end
       local open = c.guardLine == "high" and 0.18 or 0.66
@@ -185,11 +185,11 @@ TR.DRILLS = {
       end)
     end,
     judge = function(d, b, dec)
-      if dec.scorer == 1 and (dec.kind == "riposte" or dec.kind == "counter-riposte") then
+      if dec.scorer == d.P and (dec.kind == "riposte" or dec.kind == "counter-riposte") then
         return true, "PARRY-RIPOSTE!"
-      elseif dec.scorer == 2 then
+      elseif dec.scorer == d.C then
         return false, "PARRY IN THE LINE OF THE ATTACK"
-      elseif dec.scorer == 1 then
+      elseif dec.scorer == d.P then
         return false, "PARRY FIRST, THEN RIPOSTE"
       end
     end,
@@ -226,9 +226,9 @@ TR.DRILLS = {
       end)
     end,
     judge = function(d, b, dec)
-      if dec.scorer == 1 and (dec.kind == "attack" or dec.kind == "beat-attack") then
+      if dec.scorer == d.P and (dec.kind == "attack" or dec.kind == "beat-attack") then
         return true, "YOUR ATTACK HAD PRIORITY!"
-      elseif dec.scorer == 2 then
+      elseif dec.scorer == d.C then
         return false, "ITS ATTACK STARTED FIRST"
       end
     end,
@@ -262,11 +262,11 @@ TR.DRILLS = {
       end)
     end,
     judge = function(d, b, dec)
-      if dec.scorer == 1 and dec.kind == "beat-attack" then
+      if dec.scorer == d.P and dec.kind == "beat-attack" then
         return true, "BEAT-ATTACK!"
-      elseif dec.scorer == 2 then
+      elseif dec.scorer == d.C then
         return false, "BEAT THE BLADE FIRST (B)"
-      elseif dec.scorer == 1 then
+      elseif dec.scorer == d.P then
         return false, "GOOD, BUT BEAT THE BLADE FIRST"
       end
     end,
@@ -300,10 +300,10 @@ TR.DRILLS = {
       end)
     end,
     judge = function(d, b, dec)
-      if dec.scorer == 1 then return true, "AROUND THE PARRY!" end
+      if dec.scorer == d.P then return true, "AROUND THE PARRY!" end
     end,
     onParry = function(d, b, di)
-      if di == 2 then d:toast("PARRIED: SWITCH LINE MID-LUNGE") end
+      if di == d.C then d:toast("PARRIED: SWITCH LINE MID-LUNGE") end
     end,
   },
   {
@@ -330,12 +330,12 @@ TR.DRILLS = {
       end)
     end,
     step = function(d, b)
-      local f = b.f[1]
+      local f = b.f[d.P]
       if f.legs == "jump" and f.jdir > 0 then d.jumpT = b.time end
     end,
     judge = function(d, b, dec)
-      if dec.scorer == 1 then
-        local f = b.f[1]
+      if dec.scorer == d.P then
+        local f = b.f[d.P]
         if f.offFlavor == "fleche" or (d.jumpT and b.time - d.jumpT < 2.5) then
           return true, "FROM LONG RANGE!"
         end
@@ -352,6 +352,12 @@ TR.DRILLS = {
 
 local Drill = {}
 Drill.__index = Drill
+
+-- World x of footwork zone k (zones are given for the left side).
+function Drill:zoneX(k)
+  local z = self.zones[k]
+  return z and z * self.mir
+end
 
 function Drill:toast(s)
   self.msg = { text = s, t = 1.8 }
@@ -372,7 +378,7 @@ function Drill:step(b, h)
     self.msg.t = self.msg.t - h
     if self.msg.t <= 0 then self.msg = nil end
   end
-  local st = b.stats[1]
+  local st = b.stats[self.P]
   if (st.short or 0) > self.shorts then
     self.shorts = st.short or 0
     if self.def.short_msg then self:toast(self.def.short_msg) end
@@ -383,7 +389,7 @@ function Drill:step(b, h)
     self.lastPhase = b.phase
   end
   if self.done and not b.over and (b.phase == "reset" or b:live()) and (not self.msg or self.msg.t < 1.0) then
-    b.winner = 1
+    b.winner = self.P
     b:finish()
   end
 end
@@ -425,17 +431,29 @@ function Drill:drawHud(b)
   end
 end
 
+-- The drill's marks for the left and right fencer. Drills are laid out
+-- with the player on the left; on the right everything is mirrored.
+local function marks(def, d)
+  if d.mir > 0 then return def.gap[1], def.gap[2] end
+  return -def.gap[2], -def.gap[1]
+end
+
 -- Bout options for drill n, with the given controller for the player.
-function TR.setup(n, playerCtl)
+-- side: 1 = left (the default from the settings), 2 = right.
+function TR.setup(n, playerCtl, side)
   local def = TR.DRILLS[n]
-  local d = setmetatable({ def = def, n = n, count = 0, shorts = 0, zones = def.zones }, Drill)
+  side = side or settings.data.side
+  local d = setmetatable({ def = def, n = n, count = 0, shorts = 0, zones = def.zones,
+    P = side, C = 3 - side, mir = (side == 1) and 1 or -1 }, Drill)
   local me, nation = Profile.fencer()
+  local player = { name = me, nation = nation, human = true, ctl = playerCtl }
+  local coachF = { name = "COACH", ctl = def.coach(), spd = def.coachSpd or 0.95 }
   local opts = {
-    left = { name = me, nation = nation, human = true, ctl = playerCtl },
-    right = { name = "COACH", ctl = def.coach(), spd = def.coachSpd or 0.95 },
+    left = (side == 1) and player or coachF,
+    right = (side == 1) and coachF or player,
     touches = 999, endless = true, noClock = true, skipIntro = true,
     drill = d, title = "TRAINING", quitLabel = "LEAVE DRILL",
-    resetGap = function() return def.gap[1], def.gap[2] end,
+    resetGap = function() return marks(def, d) end,
   }
   return opts, d
 end
@@ -443,9 +461,10 @@ end
 -- Put a new drill bout on the drill's marks.
 function TR.place(b, n)
   local def = TR.DRILLS[n]
-  b.f[1]:place(def.gap[1], "guard")
-  b.f[2]:place(def.gap[2], "guard")
-  b.cam = (def.gap[1] + def.gap[2]) / 2
+  local x1, x2 = marks(def, b.o.drill)
+  b.f[1]:place(x1, "guard")
+  b.f[2]:place(x2, "guard")
+  b.cam = (x1 + x2) / 2
   if def.onReset then def.onReset(b.o.drill, b) end
 end
 

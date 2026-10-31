@@ -11,6 +11,7 @@ local S = {
     qlevel = 2,        -- quick bout: 1 novice .. 4 elite
     qstyle = 1,        -- 1 random, then the styles in ai.STYLE_ORDER
     qtouches = 1,      -- 1 = 5, 2 = 10, 3 = 15
+    side = 1,          -- the end of the piste you fence from: 1 left, 2 right
   },
   drills = {},         -- training drills completed: drills[n] = true
 }
@@ -48,6 +49,7 @@ function S.sanitize()
   d.qlevel = int(d.qlevel, 1, 4, 2)
   d.qstyle = int(d.qstyle, 1, 6, 1)
   d.qtouches = int(d.qtouches, 1, 3, 1)
+  d.side = int(d.side, 1, 2, 1)
 end
 
 function S.save()

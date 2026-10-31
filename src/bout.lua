@@ -28,6 +28,7 @@ B.SIMUL = 0.10       -- attacks started this close together are simultaneous
 B.RIPOSTE = 0.65     -- after a parry, the riposte must start within this
 B.BEATWIN = 0.50     -- after a beat, the attack must start within this
 B.CORPS = 0.50       -- pelvis gap (m) that counts as body contact
+B.GLOW = 1.4         -- how long a new score glows (s)
 B.DT = 1 / 120
 
 local EMPTY = Ctl.newPad()
@@ -125,7 +126,11 @@ function B:setPhase(p)
     self.call = { text = "HALTE !", big = true }
   elseif p == "decision" then
     self.call = nil
-    for i = 1, 2 do self.f[i]:relax() end
+    for i = 1, 2 do
+      local f = self.f[i]
+      f.hit = nil        -- the point leaves the target: the blade straightens
+      f:relax()
+    end
   elseif p == "break" then
     self.breakClock = 60
     self.call = { text = "BREAK", big = true }
@@ -188,9 +193,24 @@ function B:update(dt)
   local target = core.clamp((a.x + b.x) / 2, -5.6, 5.6)
   if not self.lockCam then self.cam = core.approach(self.cam, target, 5, dt) end
   self.refX = core.approach(self.refX or 0, core.clamp((a.x + b.x) / 2, -6, 6), 2.5, dt)
+  -- body wires: moving towards your reel gives slack (the reel winds in a
+  -- moment late), moving away pulls the wire taut; underdamped, so sudden
+  -- moves leave a small wobble
+  self.cordSag = self.cordSag or { { 0, 0 }, { 0, 0 } }
+  for i = 1, 2 do
+    local f, s = self.f[i], self.cordSag[i]
+    local toReel = -(f.vx or 0) * f.homeFace
+    local target = core.clamp(toReel, -1, 3) * 3.5
+    local w, z = 9, 0.3
+    s[2] = s[2] + (w * w * (target - s[1]) - 2 * z * w * s[2]) * dt
+    s[1] = core.clamp(s[1] + s[2] * dt, -4, 22)
+  end
   if self.cheer then
     self.cheer = self.cheer - dt
     if self.cheer <= 0 then self.cheer = nil end
+  end
+  if self.scoreGlow then
+    for i = 1, 2 do self.scoreGlow[i] = math.max(0, self.scoreGlow[i] - dt) end
   end
   if self.shake > 0 then self.shake = max(0, self.shake - dt) end
   if self.call and self.call.ttl then
@@ -617,6 +637,8 @@ function B:applyDecision(d)
   if d.scorer then
     local s = d.scorer
     self.score[s] = self.score[s] + 1
+    self.scoreGlow = self.scoreGlow or { 0, 0 }
+    self.scoreGlow[s] = B.GLOW
     local st = self.stats[s]
     st.touches = st.touches + 1
     st.kinds[d.kind] = (st.kinds[d.kind] or 0) + 1
