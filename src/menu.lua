@@ -82,7 +82,11 @@ function M:draw(x, y, w)
         gfx.rect(x, yy, 1, rh - 1)
       end
       local col = off and C.dark or (sel and C.text or C.whiteS)
-      gfx.text(it.label, x + 6, yy + 2, col)
+      local lx = x + 6
+      if it.flag then
+        lx = lx + require("src.nations").drawFlag(it.flag, lx, yy + 1) + 4
+      end
+      gfx.text(it.label, lx, yy + 2, col)
       if it.value then
         local v = it.value()
         local vx = x + w - 4

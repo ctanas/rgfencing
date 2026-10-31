@@ -76,9 +76,9 @@ local STUDENTS = {
     if #self.sched > 0 or not idle(me) then return end
     local mt = me.x + me.face * me.j.tipx
     local ot = op.x + op.face * op.j.tipx
-    if row.holder == 3 - i and row.kind == "line" and (mt - ot) * me.face > 0 and gap(b) < reach() + 0.1 then
+    if row.holder == 3 - i and row.kind == "line" and (mt - ot) * me.face > 0 and gap(b) < reach() - 0.05 then
       self:press(now, "b", "high")
-    elseif gap(b) > reach() then
+    elseif gap(b) > reach() - 0.05 then
       self:move(1, 0.06, now)
     end
   end,

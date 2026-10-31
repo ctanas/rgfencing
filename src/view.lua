@@ -9,6 +9,7 @@ local gfx = require("src.gfx")
 local art = require("src.art")
 local settings = require("src.settings")
 local Fencer = require("src.fencer")
+local Nations = require("src.nations")
 
 local lg = love.graphics
 local floor, max, min, abs, sin, cos, sqrt = math.floor, math.max, math.min, math.abs, math.sin, math.cos, math.sqrt
@@ -20,10 +21,12 @@ local V = {}
 local FAR, NEAR = 119, 137          -- piste edges on screen
 local TOPBAR, BOTBAR = 18, 148
 
-local function screenX(b, wx) return W / 2 + (wx - b.cam) * PPM end
+-- The camera moves in whole pixels, so the scene doesn't shimmer.
+local function camPx(b) return floor(b.cam * PPM + 0.5) end
+local function screenX(b, wx) return W / 2 + wx * PPM - camPx(b) end
 -- Piste markings converge slightly towards the far edge.
 local function persp(b, wx, y)
-  return W / 2 + (wx - b.cam) * PPM * (1 + (y - GROUND) / 18 * 0.10)
+  return W / 2 + (wx * PPM - camPx(b)) * (1 + (y - GROUND) / 18 * 0.10)
 end
 
 ---------------------------------------------------------------------------
@@ -172,12 +175,12 @@ end
 -- off to the reel at the end of the piste.
 local function drawCord(b, f)
   local j = f.j
-  local face = f.face
-  local bx = screenX(b, f.x) + face * (-0.13) * PPM
+  local face = (f.vface or f.face) < 0 and -1 or 1
+  local bx = floor(screenX(b, f.x) + 0.5) + face * (-0.13) * PPM
   local by = GROUND - (j.hipy + 0.20) * PPM
   local fx = screenX(b, f.x - face * 0.75)
   local fy = GROUND + 3
-  local rx = screenX(b, -face * (core.RUNOFF + 0.2))
+  local rx = screenX(b, -f.homeFace * (core.RUNOFF + 0.2))
   core.color(C.ink)
   local px, py = bx, by
   for k = 1, 6 do
@@ -269,21 +272,23 @@ end
 -- Fencers
 ---------------------------------------------------------------------------
 
-local function shoe(fx, fy, face, len, col)
-  -- fx, fy: floor point under the ankle
-  local x1 = fx - face * 2
-  local x2 = fx + face * len
-  local lo, hi = min(x1, x2), max(x1, x2)
-  core.color(C.ink)
-  gfx.rect(lo - 1, fy - 3, hi - lo + 3, 4)
-  core.color(col)
-  gfx.rect(lo, fy - 2, hi - lo + 1, 2)
+-- A shoe around the ankle (ax, ay), pitched toe-up (+) or heel-up (-).
+local function shoe(ax, ay, face, len, pitch, col)
+  local c, s = cos(pitch), sin(pitch)
+  local pts = {}
+  for _, p in ipairs({ { -2.2, -1.8 }, { len, -1.8 }, { len - 1.5, 0.4 }, { -2.2, 0.8 } }) do
+    local x, y = p[1] * c - p[2] * s, p[1] * s + p[2] * c
+    pts[#pts + 1] = ax + face * x
+    pts[#pts + 1] = ay - y
+  end
+  outlinedPoly(pts, col)
 end
 
 function V.fencer(b, f)
   local j = f.j
-  local face = f.face
-  local ox = screenX(b, f.x)
+  local face = f.vface or f.face
+  local sgn = face < 0 and -1 or 1
+  local ox = floor(screenX(b, f.x) + 0.5)
   local function P(lx, ly) return ox + face * lx * PPM, GROUND - ly * PPM end
   local side = core.SIDE[f.side]
 
@@ -298,8 +303,7 @@ function V.fencer(b, f)
   local kx, ky = P(j.bkx, j.bky)
   local fx, fy = P(j.bfx, j.bfy)
   limb({ hx, hy, kx, ky, fx, fy }, { 5.4, 4, 3 }, C.whiteS)
-  local gx, gy = P(j.bfx, j.bfy - Fencer.ANKLE)
-  shoe(gx, gy + 1, face, f.legs == "fleche" and 5 or 3, C.shoe)
+  shoe(fx, fy, sgn, (f.legs == "fleche" or f.legs == "walk") and 5 or 3, f.bfp or 0, C.shoe)
 
   -- hips
   local px, py = P(0, j.hipy)
@@ -309,7 +313,7 @@ function V.fencer(b, f)
   lg.circle("fill", px, py, 3.2, 10)
 
   -- trunk: jacket, then the lamé (the valid target)
-  local sl, cl = sin(f.lean), cos(f.lean)
+  local sl, cl = sin(j.lean), cos(j.lean)
   local T = Fencer.TORSO
   local function TP(s, t)
     return P(j.hipx + sl * s * T + cl * t, j.hipy + cl * s * T - sl * t)
@@ -345,13 +349,12 @@ function V.fencer(b, f)
   kx, ky = P(j.fkx, j.fky)
   fx, fy = P(j.ffx, j.ffy)
   limb({ hx, hy, kx, ky, fx, fy }, { 5.6, 4.2, 3.2 }, C.white)
-  gx, gy = P(j.ffx, j.ffy - Fencer.ANKLE)
-  shoe(gx, gy + 1, face, 5, C.shoe)
+  shoe(fx, fy, sgn, 5, f.ffp or 0, C.shoe)
 
   -- mask
   local mx, my = P(j.headx, j.heady)
   lg.setColor(1, 1, 1, 1)
-  lg.draw(art.mask, floor(mx + 0.5), floor(my + 0.5), 0, face, 1, 4, 5)
+  lg.draw(art.mask, floor(mx + 0.5), floor(my + 0.5), 0, sgn, 1, 4, 5)
 
   -- sword arm
   local s1x, s1y = P(j.shx, j.shy)
@@ -367,10 +370,11 @@ end
 
 function V.blade(b, f)
   local j = f.j
-  local face = f.face
-  local ox = screenX(b, f.x)
+  local face = f.vface or f.face
+  local ox = floor(screenX(b, f.x) + 0.5)
   local hx, hy = ox + face * j.hx * PPM, GROUND - j.hy * PPM
-  local dx, dy = cos(f.bl) * face, -sin(f.bl)
+  local ba = math.atan2(j.tipy - j.hy, j.tipx - j.hx)
+  local dx, dy = cos(ba) * face, -sin(ba)
   local L = Fencer.BLADE * PPM
   local tx, ty
   local path = {}
@@ -463,15 +467,15 @@ function V.topBar(b)
   lamp(36, 3, 7, 4, C.lampW, L[1] == "off")
   lamp(W - 43, 3, 7, 4, C.lampW, L[2] == "off")
   lamp(W - 33, 3, 30, 4, C.green, L[2] == "valid")
-  -- names
+  -- names, with their flags, kept clear of the score
   local f1, f2 = b.f[1], b.f[2]
-  local n1 = f1.name .. (f1.nation and (" " .. f1.nation) or "")
-  local n2 = (f2.nation and (f2.nation .. " ") or "") .. f2.name
-  local room = W / 2 - 42
-  gfx.text(f1.name, 3, 10, C.redL)
-  if f1.nation and gfx.textWidth(n1) <= room then gfx.text(f1.nation, 3 + gfx.textWidth(f1.name) + 6, 10, C.dim) end
-  gfx.text(f2.name, W - 3, 10, C.greenL, "right")
-  if f2.nation and gfx.textWidth(n2) <= room then gfx.text(f2.nation, W - 3 - gfx.textWidth(f2.name) - 6, 10, C.dim, "right") end
+  local fw1 = f1.nation and (Nations.drawFlag(f1.nation, 3, 9) + 3) or 0
+  local fw2 = f2.nation and (Nations.drawFlag(f2.nation, W - 3 - Nations.FLAG_W, 9) + 3) or 0
+  local room = W / 2 - 42 - 3
+  local n1 = gfx.fit(f1.name, room - fw1)
+  local n2 = gfx.fit(f2.name, room - fw2)
+  gfx.text(n1, 3 + fw1, 10, C.redL)
+  gfx.text(n2, W - 3 - fw2, 10, C.greenL, "right")
   -- score
   if not b.o.drill then
     local s1, s2 = tostring(b.score[1]), tostring(b.score[2])
@@ -494,7 +498,7 @@ function V.topBar(b)
     gfx.text("·", W / 2 + 1, 3, C.dim, "center")
   end
   if b.priorityMinute then
-    local px = b.priorityHolder == 1 and (3 + gfx.textWidth(n1) + 6) or (W - 3 - gfx.textWidth(n2) - 12)
+    local px = b.priorityHolder == 1 and (3 + fw1 + gfx.textWidth(n1) + 4) or (W - 3 - fw2 - gfx.textWidth(n2) - 10)
     gfx.text("P", px, 10, C.orange)
   end
 end

@@ -112,8 +112,9 @@ function B:setPhase(p)
     self.call = { text = "EN GARDE !", big = true }
     for i = 1, 2 do
       local f = self.f[i]
-      if f.legs == "stand" or f.arm == "pose" then
-        f:setPose(Fencer.ARM.guard[f.line], Fencer.BACK.guard, "guard")
+      if f.legs == "stand" or f.legs == "walk" then
+        f:comeEnGarde()
+      elseif f.arm == "pose" then
         f.arm = "guard"
       end
     end
@@ -124,6 +125,7 @@ function B:setPhase(p)
     self.call = { text = "HALTE !", big = true }
   elseif p == "decision" then
     self.call = nil
+    for i = 1, 2 do self.f[i]:relax() end
   elseif p == "break" then
     self.breakClock = 60
     self.call = { text = "BREAK", big = true }
@@ -165,8 +167,8 @@ function B:resetPositions(toLines)
     mid = core.clamp(mid, -core.END + 0.6 + gap / 2, core.END - 0.6 - gap / 2)
     x1, x2 = mid - gap / 2, mid + gap / 2
   end
-  a:walkTo(x1, "guard")
-  b:walkTo(x2, "guard")
+  a:walkTo(x1, "stand")
+  b:walkTo(x2, "stand")
 end
 
 ---------------------------------------------------------------------------
@@ -184,7 +186,7 @@ function B:update(dt)
   -- camera and effects at frame rate
   local a, b = self.f[1], self.f[2]
   local target = core.clamp((a.x + b.x) / 2, -5.6, 5.6)
-  self.cam = core.approach(self.cam, target, 5, dt)
+  if not self.lockCam then self.cam = core.approach(self.cam, target, 5, dt) end
   self.refX = core.approach(self.refX or 0, core.clamp((a.x + b.x) / 2, -6, 6), 2.5, dt)
   if self.cheer then
     self.cheer = self.cheer - dt
@@ -471,6 +473,7 @@ function B:registerHit(i, region, tx, ty)
   -- the blade bends against the target: remember the point in the
   -- defender's own frame so it follows them
   a.hit = { lx = (tx - d.x) * d.face, ly = ty }
+  d:flinch()
   if not self.firstHitT then
     self.firstHitT = self.time
     self.rowAtHit = { holder = self.row.holder, kind = self.row.kind }
@@ -717,7 +720,11 @@ function B:phaseLogic(h)
     end
   elseif p == "reset" then
     local a, b = self.f[1], self.f[2]
-    if (a.legs ~= "walk" and b.legs ~= "walk") or t > 2.5 then
+    if self.skip and t > 0.3 then
+      a:finishWalk()
+      b:finishWalk()
+    end
+    if (a.legs ~= "walk" and b.legs ~= "walk") or t > 6 then
       self:setPhase("engarde")
     end
   elseif p == "break" then

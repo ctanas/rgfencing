@@ -14,6 +14,7 @@ local core = require("src.core")
 local settings = require("src.settings")
 local input = require("src.input")
 local audio = require("src.audio")
+local Profile = require("src.profile")
 
 local lg = love.graphics
 local gfx
@@ -76,6 +77,10 @@ end
 function app.current() return scene end
 
 function app.toTitle(sub)
+  if not Profile.current() then
+    require("src.profiles_ui").firstRun(app, function() app.toTitle() end)
+    return
+  end
   app.set(require("src.title").new(app, sub))
 end
 
@@ -104,8 +109,19 @@ function love.load(args)
       args = args,
     }
     love.math.setRandomSeed(tonumber(argValue(args, "--seed")) or 1)
+    -- dev runs: report errors on the terminal and exit, never block on
+    -- LÖVE's error screen
+    love.errorhandler = function(msg)
+      print("ERROR: " .. tostring(msg) .. "\n" .. debug.traceback())
+      os.exit(1)
+    end
   end
 
+  if shot then
+    Profile.useSample("ALEX", "FRA")
+  else
+    Profile.load()
+  end
   setupWindow(args)
   lg.setDefaultFilter("nearest", "nearest")
   gfx = require("src.gfx")
@@ -145,6 +161,7 @@ function love.draw()
     gfx.text(string.format("%d FPS", love.timer.getFPS()), core.W - 2, core.H - 9, core.C.yellow, "right", true)
   end
   lg.setCanvas()
+  if shot and shot.film then shot.film(canvas) end
   lg.clear(0, 0, 0, 1)
   lg.setColor(1, 1, 1, 1)
 
@@ -159,11 +176,17 @@ function love.draw()
     shot.frames = shot.frames - 1
     if shot.frames <= 0 then
       local file = shot.name .. ".png"
-      lg.captureScreenshot(function(img)
-        img:encode("png", file)
+      if shot.filmDone then
+        shot.filmDone()
         print("saved " .. love.filesystem.getSaveDirectory() .. "/" .. file)
         love.event.quit()
-      end)
+      else
+        lg.captureScreenshot(function(img)
+          img:encode("png", file)
+          print("saved " .. love.filesystem.getSaveDirectory() .. "/" .. file)
+          love.event.quit()
+        end)
+      end
       shot.frames = math.huge
     end
   end

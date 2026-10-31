@@ -13,6 +13,7 @@ local AI = require("src.ai")
 local Ctl = require("src.controller")
 local Fencer = require("src.fencer")
 local Menu = require("src.menu")
+local Profile = require("src.profile")
 
 local lg = love.graphics
 local floor, max, min, abs = math.floor, math.max, math.min, math.abs
@@ -247,6 +248,17 @@ TR.DRILLS = {
         if me.arm == "guard" and #self.sched == 0 and not (self.holdUntil.x and now < self.holdUntil.x) then
           self:press(now, "x", "high", 1000)
         end
+        -- lost the line (beaten, or the phrase moved on): take it again
+        local holding = me.arm == "extend" and b.row.holder == i
+        if holding or op.offense or me.arm ~= "extend" then
+          self.lostT = nil
+        else
+          self.lostT = self.lostT or now
+          if now - self.lostT > 0.7 then
+            self.holdUntil.x = nil
+            self.lostT = nil
+          end
+        end
       end)
     end,
     judge = function(d, b, dec)
@@ -351,8 +363,7 @@ function Drill:success(msg)
   audio.play("fanfare", 0.25, 1.5)
   if self.count >= self.def.goal and not self.done then
     self.done = true
-    settings.drills[self.n] = true
-    settings.save()
+    Profile.markDrill(self.n)
   end
 end
 
@@ -385,8 +396,7 @@ function Drill:judge(b, dec)
     audio.play("fanfare", 0.25, 1.5)
     if self.count >= self.def.goal and not self.done then
       self.done = true
-      settings.drills[self.n] = true
-      settings.save()
+      Profile.markDrill(self.n)
     end
   end
   return ok, msg
@@ -419,8 +429,9 @@ end
 function TR.setup(n, playerCtl)
   local def = TR.DRILLS[n]
   local d = setmetatable({ def = def, n = n, count = 0, shorts = 0, zones = def.zones }, Drill)
+  local me, nation = Profile.fencer()
   local opts = {
-    left = { name = "YOU", human = true, ctl = playerCtl },
+    left = { name = me, nation = nation, human = true, ctl = playerCtl },
     right = { name = "COACH", ctl = def.coach(), spd = def.coachSpd or 0.95 },
     touches = 999, endless = true, noClock = true, skipIntro = true,
     drill = d, title = "TRAINING", quitLabel = "LEAVE DRILL",
@@ -476,7 +487,7 @@ function TR.menu(app, sel)
   for n, def in ipairs(TR.DRILLS) do
     items[#items + 1] = {
       label = n .. ". " .. def.name,
-      value = function() return settings.drills[n] and "DONE" or "" end,
+      value = function() return Profile.drillDone(n) and "DONE" or "" end,
       action = function() TR.start(app, n) end,
       hint = def.short,
     }
@@ -493,7 +504,7 @@ function TR.menu(app, sel)
     gfx.text("TRAINING", W / 2, 11, C.yellow, "center")
     local hint = m:draw(26, 24, W - 52)
     local done = 0
-    for k in pairs(settings.drills) do if settings.drills[k] then done = done + 1 end end
+    for n2 = 1, #TR.DRILLS do if Profile.drillDone(n2) then done = done + 1 end end
     gfx.text(hint or string.format("%d OF %d DRILLS DONE", done, #TR.DRILLS), W / 2, H - 28, C.dim, "center")
     gfx.hints({ { "A", "START" }, { "B", "BACK" } }, W / 2, H - 19, "center")
   end

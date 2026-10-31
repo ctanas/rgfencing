@@ -64,6 +64,21 @@ function gfx.line(x1, y1, x2, y2)
   lg.points(pts)
 end
 
+-- UTF-8 characters of a string.
+function gfx.chars(s)
+  local t = {}
+  for ch in s:gmatch("[%z\1-\127\194-\244][\128-\191]*") do t[#t + 1] = ch end
+  return t
+end
+
+-- Shorten s (on character boundaries) to fit maxw pixels, ending in ".".
+function gfx.fit(s, maxw)
+  if gfx.font:getWidth(s) <= maxw then return s end
+  local t = gfx.chars(s)
+  while #t > 1 and gfx.font:getWidth(table.concat(t) .. ".") > maxw do t[#t] = nil end
+  return table.concat(t) .. "."
+end
+
 function gfx.textWidth(s, scale)
   return gfx.font:getWidth(s) * (scale or 1)
 end

@@ -14,6 +14,8 @@ local Ctl = require("src.controller")
 local Menu = require("src.menu")
 local Names = require("src.names")
 local Help = require("src.help")
+local Profile = require("src.profile")
+local Nations = require("src.nations")
 
 local lg = love.graphics
 local C = core.C
@@ -50,13 +52,17 @@ function T.startQuick(app)
     local style = d.qstyle == 1 and AI.STYLE_ORDER[love.math.random(1, #AI.STYLE_ORDER)] or AI.STYLE_ORDER[d.qstyle - 1]
     local ai = AI.new(d.qlevel, style)
     local nm = Names.random()
+    local me, nation = Profile.fencer()
     app.set(Play.new(app, {
-      left = { name = "YOU", human = true, ctl = Ctl.human(input) },
+      left = { name = me, nation = nation, human = true, ctl = Ctl.human(input) },
       right = { name = nm.last, nation = nm.nation, ctl = ai, spd = ai.spd },
       touches = touches,
       title = "QUICK BOUT",
       restart = go,
-      onFinish = function() app.toTitle("quick") end,
+      onFinish = function(b)
+        Profile.recordBout(b.winner == 1, b.score[1], b.score[2])
+        app.toTitle("quick")
+      end,
     }))
   end
   go()
@@ -85,6 +91,7 @@ function T.new(app, sub)
     { label = "QUICK BOUT", action = function() t.mode = "quick" end },
     { label = "CAREER", action = function() require("src.career").hub(app) end },
     { label = "TRAINING", action = function() require("src.training").menu(app) end },
+    { label = "PROFILE", action = function() require("src.profiles_ui").screen(app) end },
     { label = "HOW TO PLAY", action = function()
       app.set(Help.scene(app, function() app.toTitle() end))
     end },
@@ -194,6 +201,13 @@ function T:draw()
   end
   if info and info ~= "" then gfx.text(info, W / 2, H - 25, C.dim, "center", true) end
 
+  -- the active fencer
+  local p = Profile.current()
+  if p then
+    local nw = gfx.textWidth(p.name)
+    Nations.drawFlag(p.nation, W - 4 - nw - 14, 3)
+    gfx.text(p.name, W - 4, 4, C.text, "right", true)
+  end
   if self.mode == "main" then
     gfx.text("V" .. core.VERSION, 3, H - 10, C.dark)
     gfx.hints({ { "A", "SELECT" } }, W - 3, H - 11, "right")

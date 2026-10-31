@@ -21,6 +21,19 @@ local max, min, pi, acos = math.max, math.min, math.pi, math.acos
 local clamp, lerp, approach = core.clamp, core.lerp, core.approach
 local seg, smooth, easeOut = core.seg, core.smooth, core.easeOut
 
+-- Damped spring on s = { value, velocity }: pulls towards target with
+-- angular frequency w (rad/s) and damping ratio z (< 1 overshoots).
+local function spring(s, target, w, z, dt)
+  local a = w * w * (target - s[1]) - 2 * z * w * s[2]
+  s[2] = s[2] + a * dt
+  s[1] = s[1] + s[2] * dt
+end
+
+local function easeOutBack(u)
+  local c1 = 1.70158
+  return 1 + (c1 + 1) * (u - 1) ^ 3 + c1 * (u - 1) ^ 2
+end
+
 local F = {}
 F.__index = F
 
@@ -78,6 +91,7 @@ F.BACK = BACK
 function F.new(o)
   local f = setmetatable({}, F)
   f.face = o.face or 1
+  f.homeFace = f.face
   f.side = o.side or 1
   f.spd = o.spd or 1
   f.line = "high"
@@ -99,6 +113,7 @@ end
 -- Put the fencer at pelvis x in a clean guard (or standing) pose.
 function F:place(x, mode)
   self.x = x
+  self.face = self.homeFace or self.face
   local face = self.face
   local arm, back
   if mode == "stand" then
@@ -114,6 +129,15 @@ function F:place(x, mode)
     self.legs, self.arm = "guard", "guard"
   end
   self.ffy, self.bfy = 0, 0
+  self.ffp, self.bfp = 0, 0
+  self.vface = face
+  self.vx, self.glide, self.prevX = 0, 0, x
+  self.walkSwing, self.protract = 0, 0
+  self.wturn = nil
+  self.sp = {
+    hip = { 0, 0 }, lean = { 0, 0 }, head = { 0, 0 }, blade = { 0, 0 },
+    b1 = { back[1], 0 }, b2 = { back[2], 0 },
+  }
   self.a1, self.a2, self.bl = arm[1], arm[2], arm[3]
   self.ba1, self.ba2 = back[1], back[2]
   self.lt, self.ld, self.at, self.ad = 0, 1, 0, 1
@@ -177,7 +201,7 @@ function F:regionAt(wx, wy)
   local j = self.j
   local lx, ly = (wx - self.x) * self.face, wy
   -- trunk
-  local sl, cl = sin(self.lean), cos(self.lean)
+  local sl, cl = sin(j.lean), cos(j.lean)
   local dx, dy = lx - j.hipx, ly - j.hipy
   local s = (dx * sl + dy * cl) / TORSO
   local t = dx * cl - dy * sl
@@ -345,6 +369,21 @@ function F:startStep(dir)
   self.endX = self.x + T.stepDist * dir * face
   self.endF = self.endX + face * STANCE_F
   self.endB = self.endX + face * STANCE_B
+  -- the pelvis follows a Hermite curve from its current speed, and keeps
+  -- cruising if the direction is still held: chained steps flow
+  local cruise = T.stepDist / self.ld
+  local v0 = clamp(self.vx * face * dir, -cruise, 1.4 * cruise)
+  self.pX0, self.pX1 = self.x, self.endX
+  self.pV0 = v0 * dir * face
+  self.pV1 = (self.wantDir == dir) and cruise * dir * face or 0
+  self.pT0, self.pD = 0, self.ld
+end
+
+local function hermite(self)
+  local u = clamp((self.lt - self.pT0) / self.pD, 0, 1)
+  local u2, u3, D = u * u, u * u * u, self.pD
+  return (2 * u3 - 3 * u2 + 1) * self.pX0 + (u3 - 2 * u2 + u) * D * self.pV0
+    + (-2 * u3 + 3 * u2) * self.pX1 + (u3 - u2) * D * self.pV1
 end
 
 function F:startJump(dir)
@@ -375,8 +414,23 @@ function F:startBlade(line)
   self:emit("blade", line)
 end
 
+-- Push a spring (hip, lean, head, blade): secondary motion.
+function F:kick(name, v)
+  local s = self.sp[name]
+  if s then s[2] = s[2] + v end
+end
+
+-- Touched: a flinch through the trunk and head.
+function F:flinch()
+  self:kick("lean", -1.6)
+  self:kick("head", -3)
+  self:kick("hip", 0.35)
+end
+
 -- My attack has been parried: blade knocked aside.
 function F:deflect()
+  self:kick("lean", -0.9)
+  self:kick("head", -1.5)
   self.arm = "deflect"
   self.at = 0
   self.ad = T.deflect
@@ -406,6 +460,7 @@ end
 -- My parry (or beat) found the blade: free to riposte straight away.
 function F:parrySucceeded()
   self.parryWon = true
+  self:kick("blade", (self.parryLine == "low") and -3.5 or 3.5)
 end
 
 -- Scripted pose for ceremonies (salute, victory...).
@@ -420,13 +475,48 @@ function F:setPose(arm, back, legs)
   end
 end
 
+-- Walk to x, standing up, blade down. A long walk away from the
+-- opponent turns round first (and back again on arrival).
 function F:walkTo(x, pose)
+  local home = self.homeFace
   self.legs = "walk"
   self.walkX = x
-  self.walkPose = pose or "guard"
+  self.walkPose = pose or "stand"
   self.walkPhase = 0
   self.offense = false
-  if self.arm ~= "pose" then self.arm = "guard" end
+  self.wt = 0
+  self.wturn = ((x - self.x) * home < -1.2) and "out" or nil
+  if self.face ~= home then self.wturn = "walking" end
+  if self.arm ~= "pose" then self:setPose(ARM.stand, BACK.stand) end
+end
+
+function F:finishWalk()
+  if self.legs ~= "walk" then return end
+  local d = self.walkX - self.x
+  self.x, self.ffx, self.bfx = self.walkX, self.ffx + d, self.bfx + d
+  self.prevX = self.x
+  self.face, self.vface = self.homeFace, self.homeFace
+  self.wturn = nil
+  self.walkSwing = 0
+  self.legs = "stand"
+end
+
+-- After "Halte!": stand up, blade down.
+function F:relax()
+  if self.legs == "walk" then return end
+  self:setPose(ARM.stand, BACK.stand, "stand")
+end
+
+-- On "En garde!": the back foot goes back, the knees bend, the blade comes up.
+function F:comeEnGarde()
+  self:finishWalk()
+  self:snapshot()
+  self.legs = "engarde"
+  self.lt = 0
+  self.ld = 0.42
+  self.endF = self.x + self.face * STANCE_F
+  self.endB = self.x + self.face * STANCE_B
+  self:setPose(ARM.guard[self.line], BACK.guard)
 end
 
 ---------------------------------------------------------------------------
@@ -455,6 +545,19 @@ function F:update(dt)
   end
   self:updateLegs(dt)
   self:updateArm(dt)
+  -- velocity and secondary motion
+  self.vx = (self.x - self.prevX) / dt
+  self.prevX = self.x
+  local vn = clamp(self.vx * self.face / 1.25, -1.6, 1.6)
+  local sp, L = self.sp, self.legs
+  local sw = (L == "walk") and self.walkSwing or 0
+  spring(sp.hip, 0, 18, 0.42, dt)
+  spring(sp.lean, (L == "step" or L == "guard" or L == "jump") and 0.07 * vn or 0, 12, 0.5, dt)
+  spring(sp.head, 0, 16, 0.4, dt)
+  spring(sp.blade, 0, 17, 0.32, dt)
+  spring(sp.b1, self.ba1 - 0.18 * vn - 0.35 * sw, 14, 0.55, dt)
+  spring(sp.b2, self.ba2 - 0.30 * vn - 0.25 * sw, 13, 0.5, dt)
+  self.protract = approach(self.protract, (self.arm == "extend" and self.aphase ~= "in") and 1 or 0, 22, dt)
   self:computeJoints()
 end
 
@@ -470,13 +573,23 @@ function F:updateLegs(dt)
   self.lt = self.lt + dt
 
   if L == "guard" then
-    local bob = 0.006 * sin(self.time * 3.1 + self.side)
-    self.hy = approach(self.hy, GUARD_HY + bob, 12, dt)
-    self.lean = approach(self.lean, 0.06, 12, dt)
+    -- momentum left over from a step that wasn't continued
+    if abs(self.glide) > 0.005 then
+      self.x = self.x + self.glide * dt
+      self.glide = self.glide * math.exp(-22 * dt)
+    else
+      self.glide = 0
+    end
+    -- a light bounce on bent knees, and breathing
+    local ph = self.time * 2.6 + self.side * 1.7
+    self.hy = approach(self.hy, GUARD_HY - 0.022 * (0.5 - 0.5 * cos(ph)), 12, dt)
+    self.lean = approach(self.lean, 0.06 + 0.012 * sin(ph * 0.5), 12, dt)
     self.ffx = approach(self.ffx, self.x + face * STANCE_F, 16, dt)
     self.bfx = approach(self.bfx, self.x + face * STANCE_B, 16, dt)
     self.ffy = approach(self.ffy, 0, 25, dt)
     self.bfy = approach(self.bfy, 0, 25, dt)
+    self.ffp = approach(self.ffp, 0, 20, dt)
+    self.bfp = approach(self.bfp, 0, 20, dt)
     if self.arm ~= "pose" then approachBack(self, BACK.guard, 10, dt) end
 
   elseif L == "step" then
@@ -487,19 +600,37 @@ function F:updateLegs(dt)
       self.bfx = lerp(s.bfx, self.endB, smooth(follow))
       self.ffy = 0.05 * sin(pi * lead)
       self.bfy = 0.03 * sin(pi * follow)
+      self.ffp = 0.35 * sin(pi * lead)       -- heel first, toe up
+      self.bfp = -0.30 * sin(pi * follow)    -- pushes off the ball of the foot
     else
       self.bfx = lerp(s.bfx, self.endB, smooth(lead))
       self.ffx = lerp(s.ffx, self.endF, smooth(follow))
       self.bfy = 0.05 * sin(pi * lead)
       self.ffy = 0.03 * sin(pi * follow)
+      self.bfp = -0.25 * sin(pi * lead)
+      self.ffp = 0.25 * sin(pi * follow)
     end
-    self.x = lerp(s.x, self.endX, smooth(seg(u, 0.05, 0.95)))
+    -- let go mid-step: re-plan to come to rest on the step's mark, taking
+    -- as long as a steady deceleration needs (never speeding up)
+    if self.pV1 ~= 0 and self.wantDir ~= self.sdir then
+      local dirw = self.sdir * face
+      local rest = max(0, (self.endX - self.x) * dirw)
+      local v = max(0.05, self.vx * dirw)
+      local D = clamp(1.5 * rest / v, 0.04, 0.3)
+      self.pX0, self.pV0 = self.x, self.vx
+      self.pT0, self.pD = self.lt, D
+      self.pV1 = 0
+      self.ld = max(self.ld, self.lt + D)
+    end
+    self.x = hermite(self)
     self.hy = approach(self.hy, GUARD_HY - 0.012 * sin(pi * u), 20, dt)
     self.lean = approach(self.lean, 0.06, 12, dt)
     if self.arm ~= "pose" then approachBack(self, BACK.guard, 10, dt) end
     if not self.stepSound and u >= 0.6 then
       self.stepSound = true
       self:emit("step")
+      self:kick("hip", -0.35)
+      self:kick("blade", -1.4)
     end
     -- change of direction early in the step
     if self.wantDir == -self.sdir and u < 0.45 then
@@ -509,20 +640,28 @@ function F:updateLegs(dt)
         self:startStep(self.wantDir)
       else
         self.legs = "guard"
+        self.glide = (self.pV1 ~= 0) and self.vx or 0
+        self:kick("hip", -0.25)
       end
     end
 
   elseif L == "jump" then
     local u = clamp(self.lt / self.ld, 0, 1)
-    local e = smooth(u)
-    self.x = lerp(s.x, self.endX, e)
-    self.ffx = lerp(s.ffx, self.endF, smooth(seg(u, 0, 0.9)))
-    self.bfx = lerp(s.bfx, self.endB, smooth(seg(u, 0.1, 1)))
-    self.ffy = 0.09 * sin(pi * seg(u, 0, 0.9))
-    self.bfy = 0.07 * sin(pi * seg(u, 0.1, 1))
-    self.hy = GUARD_HY + 0.05 * sin(pi * u)
+    -- a quick crouch, the leap, and the landing taken in the knees
+    local air = seg(u, 0.12, 1)
+    local fa, ba = seg(u, 0.10, 0.92), seg(u, 0.16, 1)
+    self.x = lerp(s.x, self.endX, smooth(air))
+    self.ffx = lerp(s.ffx, self.endF, smooth(fa))
+    self.bfx = lerp(s.bfx, self.endB, smooth(ba))
+    self.ffy = 0.10 * sin(pi * fa)
+    self.bfy = 0.08 * sin(pi * ba)
+    self.ffp = -0.25 * sin(pi * fa)
+    self.bfp = -0.30 * sin(pi * ba)
+    self.hy = GUARD_HY - 0.035 * sin(pi * seg(u, 0, 0.14)) + 0.06 * sin(pi * air)
     if u >= 1 then
       self:emit("stomp", 0.6)
+      self:kick("hip", -0.8)
+      self:kick("blade", -2)
       self.legs = "guard"
     end
 
@@ -530,6 +669,7 @@ function F:updateLegs(dt)
     local ext, drive = T.lungeExt / self.spd, T.lungeDrive / self.spd
     if self.lphase == "ext" then
       self.lean = approach(self.lean, 0.10, 10, dt)
+      self.ffp = approach(self.ffp, 0.35, 30, dt)
       if s.bEnd ~= self.bfx then self.bfx = approach(self.bfx, s.bEnd, 30, dt) end
       if self.lt >= ext then
         self.lphase = "drive"
@@ -545,6 +685,7 @@ function F:updateLegs(dt)
       local vf = min(1, v * 1.12)
       self.ffx = s.ffx + face * T.lungeFoot * easeOut(vf)
       self.ffy = 0.11 * sin(pi * vf)
+      self.ffp = 0.5 * (1 - vf * vf)
       self.x = s.x + face * T.lungePelvis * e
       self.bfx = lerp(s.bfx, s.bEnd, min(1, v * 2.5))
       self.bfy = 0
@@ -557,6 +698,10 @@ function F:updateLegs(dt)
         self.lt = 0
         self.ffy = 0
         self.lungeLanded = true
+        self.ffp = 0
+        self:kick("hip", -1.1)
+        self:kick("lean", 0.7)
+        self:kick("head", 2)
         self:emit("stomp", 1)
         self:emit("lunge_full")
       end
@@ -583,6 +728,7 @@ function F:updateLegs(dt)
         self.x = lerp(s.x, px, e)
         self.ffx = lerp(s.ffx, s.bfx + face * (STANCE_F - STANCE_B), e)
         self.ffy = 0.07 * sin(pi * v)
+        self.ffp = 0.3 * sin(pi * v)
       end
       self.hy = lerp(s.hy, GUARD_HY, e)
       self.lean = lerp(s.lean, 0.06, e)
@@ -592,6 +738,7 @@ function F:updateLegs(dt)
         self.legs = "guard"
         self.lt = 0
         self.ffy, self.bfy = 0, 0
+        self:kick("hip", -0.4)
         self:emit("step")
       end
     end
@@ -663,28 +810,87 @@ function F:updateLegs(dt)
     end
 
   elseif L == "walk" then
-    local d = self.walkX - self.x
-    local spd = 1.7
-    local stepx = clamp(d, -spd * dt, spd * dt)
-    self.x = self.x + stepx
-    self.walkPhase = self.walkPhase + abs(stepx) / 0.30
-    local ph = self.walkPhase * pi
-    local stand = self.walkPose == "stand"
-    local fF, fB = stand and 0.12 or STANCE_F, stand and -0.12 or STANCE_B
-    self.ffx = self.x + face * (fF + 0.06 * sin(ph))
-    self.bfx = self.x + face * (fB - 0.06 * sin(ph))
-    self.ffy = abs(d) > 0.01 and max(0, sin(ph)) * 0.04 or approach(self.ffy, 0, 20, dt)
-    self.bfy = abs(d) > 0.01 and max(0, -sin(ph)) * 0.04 or approach(self.bfy, 0, 20, dt)
-    self.hy = approach(self.hy, stand and STAND_HY or GUARD_HY, 10, dt)
-    self.lean = approach(self.lean, stand and 0 or 0.06, 10, dt)
-    if self.arm ~= "pose" then approachBack(self, BACK.guard, 10, dt) end
-    if abs(d) < 0.005 then
-      self.x = self.walkX
-      self.legs = stand and "stand" or "guard"
+    local home = self.homeFace
+    self.wt = self.wt + dt
+    if self.wturn == "out" or self.wturn == "back" then
+      -- turning round on the spot: the side view squashes through edge-on
+      local u = clamp(self.wt / 0.26, 0, 1)
+      local from = (self.wturn == "out") and home or -home
+      self.vface = from * cos(pi * u)
+      if u >= 0.5 then self.face = -from end
+      self.hy = approach(self.hy, STAND_HY - 0.015, 10, dt)
+      self.lean = approach(self.lean, 0, 10, dt)
+      self.ffx = approach(self.ffx, self.x + 0.08 * self.face, 14, dt)
+      self.bfx = approach(self.bfx, self.x - 0.08 * self.face, 14, dt)
+      self.ffy = 0.03 * sin(pi * u)
+      self.bfy = 0.03 * sin(pi * seg(u, 0.3, 1))
+      self.walkSwing = approach(self.walkSwing, 0, 10, dt)
+      if u >= 1 then
+        self.vface = self.face
+        self.wt = 0
+        if self.wturn == "out" then
+          self.wturn = "walking"
+        else
+          self.wturn = nil
+          self.legs = (self.walkPose == "guard") and "guard" or "stand"
+          self.lt = 0
+        end
+      end
+    else
+      -- the walk: heel to toe, hips rising and falling, arms swinging
+      local d = self.walkX - self.x
+      local spd = abs(d) > 2 and 2.0 or 1.5
+      local stepx = clamp(d, -spd * dt, spd * dt)
+      self.x = self.x + stepx
+      self.walkPhase = self.walkPhase + abs(stepx) / 1.1
+      local ph = 2 * pi * self.walkPhase
+      local moving = abs(d) > 0.01
+      local t = (d >= 0 and 1 or -1) * face        -- +1 walking forwards
+      local amp = moving and 0.24 or 0
+      local sa, sb = sin(ph), sin(ph + pi)
+      self.ffx = approach(self.ffx, self.x + face * (0.06 + t * amp * sa), 30, dt)
+      self.bfx = approach(self.bfx, self.x + face * (-0.06 + t * amp * sb), 30, dt)
+      self.ffy = moving and max(0, cos(ph)) * 0.07 or approach(self.ffy, 0, 20, dt)
+      self.bfy = moving and max(0, cos(ph + pi)) * 0.07 or approach(self.bfy, 0, 20, dt)
+      self.ffp = moving and 0.35 * t * cos(ph) or approach(self.ffp, 0, 20, dt)
+      self.bfp = moving and 0.35 * t * cos(ph + pi) or approach(self.bfp, 0, 20, dt)
+      self.hy = approach(self.hy, STAND_HY - (moving and 0.035 * abs(sa) or 0), 18, dt)
+      self.lean = approach(self.lean, moving and 0.05 * t or 0, 8, dt)
+      self.walkSwing = moving and sa * t or approach(self.walkSwing, 0, 10, dt)
+      self.vface = self.face
+      if abs(d) < 0.005 then
+        self.x = self.walkX
+        if self.wturn == "walking" then
+          self.wturn = "back"
+          self.wt = 0
+        else
+          self.legs = (self.walkPose == "guard") and "guard" or "stand"
+          self.lt = 0
+        end
+      end
+    end
+
+  elseif L == "engarde" then
+    local u = clamp(self.lt / self.ld, 0, 1)
+    local bu, fu = seg(u, 0, 0.7), seg(u, 0.25, 1)
+    self.bfx = lerp(s.bfx, self.endB, smooth(bu))
+    self.bfy = 0.05 * sin(pi * bu)
+    self.bfp = -0.25 * sin(pi * bu)
+    self.ffx = lerp(s.ffx, self.endF, smooth(fu))
+    self.ffy = 0.03 * sin(pi * fu)
+    self.hy = lerp(s.hy, GUARD_HY, smooth(u))
+    self.lean = lerp(s.lean, 0.06, smooth(u))
+    if u >= 1 then
+      self.legs = "guard"
+      self.arm = "guard"
       self.lt = 0
+      self:kick("hip", -0.4)
     end
 
   elseif L == "stand" then
+    self.ffp = approach(self.ffp, 0, 20, dt)
+    self.bfp = approach(self.bfp, 0, 20, dt)
+    self.walkSwing = approach(self.walkSwing, 0, 10, dt)
     self.hy = approach(self.hy, STAND_HY, 8, dt)
     self.lean = approach(self.lean, self.standLean or 0, 8, dt)
     self.ffx = approach(self.ffx, self.x + face * 0.12, 10, dt)
@@ -735,10 +941,13 @@ function F:updateArm(dt)
   local A = self.arm
   self.at = self.at + dt
   if A == "guard" then
+    -- fencers keep the point alive: small circles around the guard
     local g = ARM.guard[self.line]
-    self.a1 = approach(self.a1, g[1], 24, dt)
-    self.a2 = approach(self.a2, g[2], 24, dt)
-    self.bl = approach(self.bl, g[3], 24, dt)
+    local ph = self.time * 2.2 + self.side
+    local play = (self.legs == "guard") and 1 or 0.4
+    self.a1 = approach(self.a1, g[1] + 0.03 * play * sin(ph * 0.7), 24, dt)
+    self.a2 = approach(self.a2, g[2] + 0.04 * play * sin(ph), 24, dt)
+    self.bl = approach(self.bl, g[3] + 0.06 * play * sin(ph * 1.3 + 0.5), 24, dt)
 
   elseif A == "extend" then
     local a1, a2, bl = self:aimAngles()
@@ -788,9 +997,10 @@ function F:updateArm(dt)
     if P == "snap" then
       local u = clamp(self.at / self.ad, 0, 1)
       local a0 = self.a0
-      self.a1 = lerp(a0[1], p[1], easeOut(u))
-      self.a2 = lerp(a0[2], p[2], easeOut(u))
-      self.bl = lerp(a0[3], p[3], easeOut(u))
+      local e = easeOutBack(u)
+      self.a1 = lerp(a0[1], p[1], e)
+      self.a2 = lerp(a0[2], p[2], e)
+      self.bl = lerp(a0[3], p[3], e)
       if u >= 1 then
         self.pphase = "active"
         self.at = 0
@@ -868,20 +1078,28 @@ end
 function F:computeJoints()
   local j = self.j
   local face, x = self.face, self.x
-  local hy, lean = self.hy, self.lean
+  local sp = self.sp
+  local hy, lean = self.hy + sp.hip[1], self.lean + sp.lean[1]
   local sl, cl = sin(lean), cos(lean)
+  local nod = sp.head[1]
+  j.lean = lean
   j.hipx, j.hipy = 0, hy
   j.neckx, j.necky = sl * TORSO, hy + cl * TORSO
-  j.shx, j.shy = sl * (TORSO - 0.06) + 0.03, hy + cl * (TORSO - 0.06)
-  j.headx, j.heady = j.neckx + sl * 0.13 + 0.03, j.necky + cl * 0.13
-  -- sword arm
-  j.elx, j.ely = j.shx + cos(self.a1) * UPPER, j.shy + sin(self.a1) * UPPER
+  -- the shoulder comes forward as the arm extends
+  j.shx, j.shy = sl * (TORSO - 0.06) + 0.03 + 0.04 * self.protract, hy + cl * (TORSO - 0.06)
+  j.headx, j.heady = j.neckx + sl * 0.13 + 0.03 + 0.25 * nod, j.necky + cl * 0.13 - 0.10 * abs(nod)
+  -- sword arm (the blade spring only moves a blade that cannot hit)
+  local sw = self.walkSwing
+  local a1 = self.a1 + ((self.legs == "walk") and 0.22 * sw or 0)
+  local bl = self.bl + ((self.arm ~= "extend") and sp.blade[1] or 0)
+  j.elx, j.ely = j.shx + cos(a1) * UPPER, j.shy + sin(a1) * UPPER
   j.hx, j.hy = j.elx + cos(self.a2) * FORE, j.ely + sin(self.a2) * FORE
-  j.tipx, j.tipy = j.hx + cos(self.bl) * BLADE, j.hy + sin(self.bl) * BLADE
+  j.tipx, j.tipy = j.hx + cos(bl) * BLADE, j.hy + sin(bl) * BLADE
   -- other arm (from the far shoulder)
+  local b1, b2 = sp.b1[1], sp.b2[1]
   j.bshx, j.bshy = j.shx - 0.08, j.shy - 0.01
-  j.belx, j.bely = j.bshx + cos(self.ba1) * UPPER, j.bshy + sin(self.ba1) * UPPER
-  j.bhx, j.bhy = j.belx + cos(self.ba2) * (FORE - 0.02), j.bely + sin(self.ba2) * (FORE - 0.02)
+  j.belx, j.bely = j.bshx + cos(b1) * UPPER, j.bshy + sin(b1) * UPPER
+  j.bhx, j.bhy = j.belx + cos(b2) * (FORE - 0.02), j.bely + sin(b2) * (FORE - 0.02)
   -- legs
   local fl = (self.ffx - x) * face
   local bk = (self.bfx - x) * face

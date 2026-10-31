@@ -4,7 +4,11 @@ A pixel-art **foil fencing** game for LÖVE 11, made for the **Anbernic RG34XXSP
 (720×480, Allwinner H700) and packaged for both muOS and PortMaster. It plays
 by the real rules: only the trunk is target, the scoring box locks out 300 ms
 after the first hit, and when both lamps light the referee gives the touch by
-**right of way**, and tells you why.
+**right of way**, and tells you why. The fencers move with weight and momentum,
+in the spirit of the rotoscoped classics, and each player fences under their
+own profile, name and flag.
+
+![An exchange between two Elite fencers: attack, parry, riposte, and the referee's call](screenshots/bout.gif)
 
 | | |
 |---|---|
@@ -12,8 +16,9 @@ after the first hit, and when both lamps light the referee gives the touch by
 | ![The referee's decision](screenshots/decision.png) | ![Lockout: the red lamp, and the priority marker](screenshots/lockout.png) |
 | ![Career: the pool sheet](screenshots/pool.png) | ![Career: the table of 8](screenshots/bracket.png) |
 | ![Training: attack the open line](screenshots/drill.png) | ![The salute before the bout](screenshots/salute.png) |
+| ![Your profile](screenshots/profile.png) | ![Typing a name, accents included](screenshots/keyboard.png) |
 
-*Screenshots are rendered by the game itself at native 720×480 (`./build.sh shots`).*
+*Screenshots and the clip are rendered by the game itself at native 720×480 (`./build.sh shots`).*
 
 ## Install
 
@@ -27,7 +32,7 @@ or build them all with `./build.sh` (output in `dist/`).
 3. Launch **RG Fencing** from Applications.
 
 The muxapp is self-contained: it bundles an aarch64 LÖVE 11.5 runtime, since
-muOS doesn't include LÖVE. Settings, the career and training progress are stored
+muOS doesn't include LÖVE. Settings and profiles (each with its career) are stored
 in `MUOS/application/RGFencing/.game/save/`. If the game doesn't start, check
 `MUOS/application/RGFencing/.game/rgfencing.log`.
 
@@ -106,6 +111,22 @@ Every halt ends with the referee's call (*ATTACK FROM THE LEFT · TOUCH LEFT*,
 that explains it (*COUNTERATTACK NOT IN TIME*, *THE RIPOSTE BEATS THE REMISE*,
 *ONLY THE TRUNK IS VALID IN FOIL*...). The referee signals it too.
 
+## Profiles
+
+The first time the game starts it asks for your **name** and the **nation** you
+fence for. Your name and flag then appear on the scoreboard, the pool sheets
+and the rankings. Each profile keeps its own career, training progress and
+record (bouts, wins, touches scored and received), so several players can share
+the console: **Title → Profile** lets you switch, add, rename, change the
+nationality or delete a profile.
+
+- **Names** are typed on an on-screen keyboard, up to 12 letters. Y switches to
+  accented capitals (À Á Â Ä Ă Ç É Ê Ë Î Ñ Ö Ø Ș Ț Ü Š Ž Č Ł Ő ...).
+  B deletes, X types a space, Start confirms.
+- **Nationality**: 112 nations with their FIE/IOC code and a 9×6 pixel flag.
+  ◄/► jump between initial letters, L1/R1 page.
+- A career and training progress from v0.1.0 are moved into the first profile.
+
 ## Game modes
 
 ### Quick bout
@@ -171,6 +192,33 @@ scored. Between Elite fencers of all styles, about half the touches are attacks,
 four in ten parry-ripostes and the rest beat-attacks and counterattacks, which is
 roughly the mix of real top-level foil.
 
+## Animation
+
+The fencers are a procedural skeleton, animated to move like people rather than
+cut-outs. Rotoscoped games of the late 1980s were the inspiration: weight,
+momentum and follow-through, not any one game's frames.
+
+- **Momentum.** The pelvis follows a velocity-continuous path: held steps flow
+  into each other at a steady 1.25 m/s instead of stopping between steps, and
+  letting go decelerates smoothly onto the step's mark (so distances stay exact).
+- **Secondary motion.** Damped springs on the hips, trunk, head, rear arm and a
+  resting blade add lag, overshoot and settle, driven by the fencer's speed and
+  by impacts: a foot planting, the lunge landing, a jump taken in the knees, a
+  parry's clang, the flinch of being touched.
+- **Feet** roll heel to toe. The lunge kicks the front foot out toe-up and slaps
+  it flat; a balestra crouches before it leaps.
+- **Alive on guard:** a light bounce in the knees, breathing, and the point
+  circling. A parry snaps through with a slight overshoot.
+- **Between touches** the fencers stand up, turn round and walk back to their
+  lines with a real stride and swinging arms, then step back into guard on
+  *En garde!*.
+- **Pixel-stable:** fencers and camera move in whole pixels, so the limbs keep
+  their shape instead of shimmering.
+
+The rules use the same skeleton, so the target you see is always the target
+that counts. `./build.sh test` re-measures every action's reach and timing for
+the AI.
+
 ## Pixel art
 
 Everything is drawn in a 240×160 canvas and scaled ×3 to fill the 720×480 panel
@@ -180,8 +228,9 @@ Everything is drawn in a 240×160 canvas and scaled ×3 to fill the 720×480 pan
   quad with a 1-pixel ink outline, drawn back to front, with far limbs shaded. So
   the art always matches the geometry the rules use: the lamé you see is exactly
   the target, and the blade bends where it hit. The legs use two-bone IK.
-- **Hand-drawn** pixel sprites: the fencing mask, the title's crossed foils, and
-  the 5×7 font (with the accents for *PRÊTS ?* and *CORPS-À-CORPS*).
+- **Hand-drawn** pixel sprites: the fencing mask, the title's crossed foils, the
+  5×7 font (accented capitals are built from the base letter and its accent),
+  and 112 flags at 9×6.
 - **Generated** at start-up: the tiered crowd (with a cheering frame), dithered
   light shafts, the LED barrier boards and the floor.
 - **Sound** is synthesised at start-up too: steel on steel from inharmonic
@@ -205,8 +254,17 @@ Everything is drawn in a 240×160 canvas and scaled ×3 to fill the 720×480 pan
 ./build.sh test 10        # headless: AI vs AI, levels and styles, touch statistics
 ./build.sh drills         # headless: a scripted student completes every drill
 ./build.sh smoke          # drives every screen with scripted input (opens a window)
-./build.sh shots          # renders the README screenshots
+./build.sh shots          # renders the README screenshots and clip (clip needs Python + Pillow)
 ./build.sh run            # play on this PC
+```
+
+To look at motion frame by frame, the film mode drives the left fencer with a
+scripted button timeline and saves a contact sheet plus single frames to the
+save directory:
+
+```sh
+love . --shot walk --mode film --act walk        # also: advance lunge parry fleche jump idle hit
+love . --shot bout --mode film --act bout --every 2 --start 1.2 --dur 7   # whole screen, AI vs AI
 ```
 
 The muxapp's LÖVE runtime comes from [2048 Plus](https://github.com/saitamasahil/2048plus)
@@ -221,6 +279,8 @@ The muxapp's LÖVE runtime comes from [2048 Plus](https://github.com/saitamasahi
 | `src/controller.lua` | Pad → fencer commands, shared by the player, the AI and the coaches |
 | `src/view.lua` | Drawing a bout: arena, piste, referee, fencers, HUD |
 | `src/career.lua`, `src/training.lua` | The career and the drills |
+| `src/profile.lua`, `src/profiles_ui.lua` | Profiles; the name keyboard, nation picker and profile screen |
+| `src/nations.lua` | 112 nations and their pixel flags |
 
 ## License
 

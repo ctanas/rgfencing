@@ -10,6 +10,9 @@ local S = {}
 
 -- { "label" } | { wait = frames } | { press = btn } | { hold = btn, frames = n }
 local SCRIPT = {
+  { "first run" }, { wait = 20 }, { press = "a" }, { wait = 5 },
+  { press = "a" }, { press = "right" }, { press = "a" }, { press = "y" }, { press = "a" }, { press = "b" },
+  { press = "start" }, { wait = 5 }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { "title" }, { wait = 30 },
   { "quick bout" }, { press = "a" }, { wait = 5 }, { press = "right" }, { press = "down" }, { press = "down" },
   { press = "down" }, { press = "a" }, { wait = 150 },
@@ -27,10 +30,16 @@ local SCRIPT = {
   { wait = 400 }, { press = "b" }, { wait = 200 },
   { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { press = "b" }, { wait = 5 },
-  { "how to play" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
+  { "profile" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
+  { press = "a" }, { wait = 5 }, { press = "a" }, { press = "a" }, { press = "start" }, { wait = 5 },
+  { press = "up" }, { press = "a" }, { wait = 5 },
+  { press = "a" }, { wait = 5 }, { press = "a" }, { wait = 5 },
+  { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 }, { press = "right" }, { press = "a" }, { wait = 5 },
+  { press = "b" }, { wait = 5 },
+  { "how to play" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { press = "right" }, { press = "right" }, { press = "right" }, { press = "right" }, { press = "right" },
   { press = "b" }, { wait = 5 },
-  { "options" }, { press = "down" }, { press = "a" }, { press = "right" }, { press = "down" }, { press = "down" },
+  { "options" }, { press = "down" }, { press = "down" }, { press = "a" }, { press = "right" }, { press = "down" }, { press = "down" },
   { press = "right" }, { press = "right" }, { press = "b" }, { wait = 10 },
   { "done" },
 }

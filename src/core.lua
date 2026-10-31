@@ -1,7 +1,7 @@
 -- Shared constants, palette and small helpers used by every module.
 
 local core = {
-  VERSION = "0.1.0",
+  VERSION = "0.2.0",
   W = 240,           -- logical pixel canvas, shown x3 on the 720x480 panel
   H = 160,
   PPM = 30,          -- pixels per metre on the piste

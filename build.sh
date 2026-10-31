@@ -144,14 +144,26 @@ build_shots() {
     run_shot drill --mode drill --drill 3 --go 1 --time 2.2
     run_shot training --mode training --time 0.5
     run_shot quick --mode quick --time 1.5
+    run_shot profile --mode profile --time 0.5
+    run_shot keyboard --mode keyboard --time 0.5
+    run_shot bout --mode film --act bout --every 2 --start 1.2 --dur 7 --seed 21
     local dir
     case "$(uname)" in
         Darwin) dir="$HOME/Library/Application Support/LOVE/rgfencing" ;;
         *) dir="${XDG_DATA_HOME:-$HOME/.local/share}/love/rgfencing" ;;
     esac
-    for f in title lunge decision lockout salute pool bracket drill training quick; do
+    for f in title lunge decision lockout salute pool bracket drill training quick profile keyboard; do
         cp "$dir/$f.png" "$ROOT/screenshots/$f.png"
     done
+    # the animated bout clip (needs Python 3 with Pillow)
+    python3 - "$dir" "$ROOT/screenshots/bout.gif" <<'PY'
+import glob, sys
+from PIL import Image
+src, out = sys.argv[1], sys.argv[2]
+fr = [Image.open(f).convert("RGB") for f in sorted(glob.glob(src + "/bout_[0-9][0-9][0-9].png"))]
+fr = [f.resize((f.width * 2, f.height * 2), Image.NEAREST).quantize(colors=96, method=Image.MEDIANCUT) for f in fr]
+fr[0].save(out, save_all=True, append_images=fr[1:], duration=33, loop=0, optimize=True)
+PY
     echo "Screenshots in screenshots/"
 }
 

@@ -15,13 +15,14 @@ local AI = require("src.ai")
 local Ctl = require("src.controller")
 local Menu = require("src.menu")
 local Names = require("src.names")
+local Profile = require("src.profile")
+local Nations = require("src.nations")
 
 local floor, max, min, abs, exp = math.floor, math.max, math.min, math.abs, math.exp
 local C = core.C
 local W, H = core.W, core.H
 
 local CA = {}
-local FILE = "career.lua"
 
 CA.EVENTS = {
   { name = "CLUB OPEN", lo = 1.0, hi = 1.8, de = 10 },
@@ -41,13 +42,18 @@ CA.ORDER6 = {
 local save
 
 function CA.load()
-  save = settings.readTable(FILE)
+  save = settings.readTable(Profile.careerFile())
   if save and save.v ~= 1 then save = nil end
   return save
 end
 
 function CA.write()
-  if save then settings.writeTable(FILE, save) end
+  if save then settings.writeTable(Profile.careerFile(), save) end
+end
+
+-- The active profile changed: forget the career in memory.
+function CA.reset()
+  save = nil
 end
 
 local function rnd() return love.math.random() end
@@ -59,7 +65,8 @@ local function rnd() return love.math.random() end
 function CA.newEvent(idx)
   local E = CA.EVENTS[idx]
   local used = {}
-  local field = { { first = "", last = "YOU", nation = nil, rating = 0, you = true } }
+  local me, nation = Profile.fencer()
+  local field = { { first = "", last = me, nation = nation, rating = 0, you = true } }
   for _ = 1, 11 do
     local n = Names.random(save.gender, nil, used)
     n.rating = E.lo + (E.hi - E.lo) * rnd()
@@ -265,10 +272,14 @@ local function placeName(p)
 end
 CA.placeName = placeName
 
+-- A fencer's name and nation; the player's come from the active profile.
+local function who(f)
+  if f.you then return Profile.fencer() end
+  return f.last, f.nation
+end
+
 local function short(f, n)
-  local s = f.last
-  if #s > (n or 9) then s = s:sub(1, n or 9) end
-  return s
+  return gfx.fit((who(f)), (n or 9) * 6)
 end
 
 ---------------------------------------------------------------------------
@@ -281,14 +292,18 @@ function CA.fence(app, oppId, touches, onDone)
   local ai = AI.new(o.rating, o.style)
   local E = CA.EVENTS[ev.idx]
   local title = E.name
+  local me, nation = Profile.fencer()
   app.set(Play.new(app, {
-    left = { name = "YOU", human = true, ctl = Ctl.human(input) },
+    left = { name = me, nation = nation, human = true, ctl = Ctl.human(input) },
     right = { name = o.last, nation = o.nation, ctl = ai, spd = ai.spd },
     touches = touches,
     title = title,
     quitLabel = "LEAVE (FENCE LATER)",
     onQuit = function() CA.eventScreen(app) end,
-    onFinish = function(b) onDone(b.score[1], b.score[2]) end,
+    onFinish = function(b)
+      Profile.recordBout(b.score[1] > b.score[2], b.score[1], b.score[2])
+      onDone(b.score[1], b.score[2])
+    end,
   }))
 end
 
@@ -339,7 +354,8 @@ local function drawPool(p, top)
     end
     gfx.text(tostring(r), 8, y, C.dim)
     gfx.text(short(f, 10), 18, y, you and C.yellow or C.text)
-    if f.nation then gfx.text(f.nation, 82, y, C.dim) end
+    local _, nat = who(f)
+    Nations.drawFlag(nat, 84, y - 1)
     for c, oid in ipairs(pool) do
       local cx = x0 + (c - 1) * cw
       if oid == id then
@@ -378,7 +394,11 @@ local function drawRanking()
     end
     gfx.text(tostring(k), 17, y, k <= 8 and C.greenL or C.dark, "right")
     gfx.text(short(f, 12), 22, y, f.you and C.yellow or (k <= 8 and C.text or C.dim))
-    if f.nation then gfx.text(f.nation, 98, y, C.dim) end
+    local _, nat = who(f)
+    if nat then
+      Nations.drawFlag(nat, 98, y - 1)
+      gfx.text(nat, 112, y, C.dim)
+    end
     gfx.text(string.format("%d/%d", s.v, s.m), 150, y, C.text, "center")
     gfx.text((s.ind > 0 and "+" or "") .. s.ind, 182, y, C.text, "center")
     gfx.text(tostring(s.ts), 212, y, C.text, "center")

@@ -91,10 +91,6 @@ local G = {
   x = "...../...../#...#/.#.#./..#../.#.#./#...#",
   y = "...../...../#...#/#...#/#...#/#...#/.####/....#/.###.",
   z = "...../...../#####/...#./..#../.#.../#####",
-  ["À"] = "!.#.../..#../.###./#...#/#...#/#####/#...#/#...#/#...#",
-  ["É"] = "!...#./..#../#####/#..../#..../####./#..../#..../#####",
-  ["È"] = "!.#.../..#../#####/#..../#..../####./#..../#..../#####",
-  ["Ê"] = "!..#../.#.#./#####/#..../#..../####./#..../#..../#####",
   ["é"] = "!...../...../...#./..#../.###./#...#/#####/#..../.###.",
   ["è"] = "!...../...../.#.../..#../.###./#...#/#####/#..../.###.",
   ["ê"] = "!...../...../..#../.#.#./.###./#...#/#####/#..../.###.",
@@ -111,9 +107,55 @@ local G = {
   ["×"] = "...../#...#/.#.#./..#../.#.#./#...#/.....",
 }
 
+-- Accented capitals, built from the base letter and an accent (two rows
+-- above the capital) or a mark below (two rows under the baseline).
+local ACCENT5 = {
+  grave = ".#.../..#..", acute = "...#./..#..", circ = "..#../.#.#.", uml = "...../.#.#.",
+  ring = ".###./.#.#.", breve = "#...#/.###.", caron = ".#.#./..#..", dacute = "..#.#/.#.#.",
+  tilde = ".#.#./#.#..",
+}
+local ACCENT3 = {
+  grave = "#../.#.", acute = "..#/.#.", circ = ".#./#.#", uml = ".../#.#",
+}
+local BELOW = { cedil = "..#../.##..", comma = "..#../.#..." }
+local GEN = {
+  ["À"] = { "A", "grave" }, ["Á"] = { "A", "acute" }, ["Â"] = { "A", "circ" }, ["Ä"] = { "A", "uml" },
+  ["Å"] = { "A", "ring" }, ["Ă"] = { "A", "breve" }, ["Ã"] = { "A", "tilde" },
+  ["È"] = { "E", "grave" }, ["É"] = { "E", "acute" }, ["Ê"] = { "E", "circ" }, ["Ë"] = { "E", "uml" },
+  ["Ě"] = { "E", "caron" },
+  ["Ì"] = { "I", "grave" }, ["Í"] = { "I", "acute" }, ["Î"] = { "I", "circ" }, ["Ï"] = { "I", "uml" },
+  ["Ò"] = { "O", "grave" }, ["Ó"] = { "O", "acute" }, ["Ô"] = { "O", "circ" }, ["Ö"] = { "O", "uml" },
+  ["Õ"] = { "O", "tilde" }, ["Ő"] = { "O", "dacute" },
+  ["Ù"] = { "U", "grave" }, ["Ú"] = { "U", "acute" }, ["Û"] = { "U", "circ" }, ["Ü"] = { "U", "uml" },
+  ["Ű"] = { "U", "dacute" }, ["Ů"] = { "U", "ring" },
+  ["Ñ"] = { "N", "tilde" }, ["Ń"] = { "N", "acute" }, ["Ň"] = { "N", "caron" },
+  ["Ý"] = { "Y", "acute" }, ["Ć"] = { "C", "acute" }, ["Č"] = { "C", "caron" },
+  ["Š"] = { "S", "caron" }, ["Ś"] = { "S", "acute" }, ["Ž"] = { "Z", "caron" }, ["Ź"] = { "Z", "acute" },
+  ["Ř"] = { "R", "caron" }, ["Ď"] = { "D", "caron" }, ["Ť"] = { "T", "caron" },
+  ["Ç"] = { "C", nil, "cedil" }, ["Ș"] = { "S", nil, "comma" }, ["Ț"] = { "T", nil, "comma" },
+  ["Ş"] = { "S", nil, "cedil" },
+}
+for ch, g in pairs(GEN) do
+  local base = G[g[1]]
+  local w = #base:match("^[^/]*")
+  if g[2] then
+    local acc = (w == 3 and ACCENT3 or ACCENT5)[g[2]]
+    G[ch] = "!" .. acc .. "/" .. base
+  else
+    G[ch] = base .. "/" .. BELOW[g[3]]
+  end
+end
+G["Ø"] = ".###./#..##/#..##/#.#.#/##..#/##..#/.###."
+G["Ł"] = "#..../#..../#.#../##.../#..../#..../#####"
+G["ß"] = ".##../#..#./#..#./###../#..#./#..#./#.##."
+
 local ORDER = {}
 for ch in pairs(G) do ORDER[#ORDER + 1] = ch end
 table.sort(ORDER)
+
+-- Every character the font can draw (the name keyboard uses this).
+local font = { HAS = {} }
+for ch in pairs(G) do font.HAS[ch] = true end
 
 local H = 11
 
@@ -127,8 +169,6 @@ local function rows(def)
   for row in (def .. "/"):gmatch("([^/]*)/") do r[#r + 1] = row end
   return r, start
 end
-
-local font = {}
 
 function font.build()
   -- total width: a separator column before each glyph and at the end
