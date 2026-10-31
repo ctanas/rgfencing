@@ -145,9 +145,7 @@ your own bouts; the others are simulated from the fencers' ratings. A medal
 (top 3) unlocks the next competition. The career is saved after every bout; you
 can leave a bout from the pause menu and fence it later.
 
-Fencers go by one name, as on a fencing scoreboard. One of them is a familiar
-face: **Dărăban** of Romania is the top seed of every competition, so you meet
-him in your pool each time, and now and then in a quick bout.
+Fencers go by one name, as on a fencing scoreboard.
 
 | Competition | Opponents | DE bouts to |
 |---|---|---|
