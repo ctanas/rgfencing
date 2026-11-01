@@ -22,8 +22,8 @@ Help.CONTROLS = {
   { "START", "PAUSE" },
 }
 
-local function controlRows(x, y)
-  for k, c in ipairs(Help.CONTROLS) do
+local function controlRows(x, y, rows)
+  for k, c in ipairs(rows or Help.CONTROLS) do
     local yy = y + (k - 1) * 11
     if c[1] == "←→" or c[1] == "↑↓" then
       core.color(C.ink)
@@ -38,12 +38,12 @@ local function controlRows(x, y)
   end
 end
 
-function Help.drawControls()
+function Help.drawControls(rows)
   core.color(C.ink, 0.7)
   gfx.rect(0, 0, W, H)
   gfx.panel(20, 14, W - 40, H - 28)
   gfx.text("CONTROLS", W / 2, 19, C.yellow, "center")
-  controlRows(30, 31)
+  controlRows(30, 31, rows)
   gfx.text("SELECT + START QUITS THE GAME", W / 2, H - 22, C.dim, "center")
 end
 
@@ -70,6 +70,11 @@ Help.PAGES = {
     "The piste is 14 m long. You start behind your en-garde line, 2 m from the centre. The last 2 m before each end line is the warning zone.",
     "Cross your own end line with both feet and you concede a touch. Body contact (corps-à-corps) halts the bout.",
     "Bouts to 5 last 3 minutes. Bouts to 15 have three periods, with a break at 8. A tie at time goes to a priority minute.",
+  } },
+  { title = "TACTICAL BOUT", text = {
+    "You move live. Press A to attack: the bout stops and you choose how. When they attack, choose a defence; after a parry, the riposte and the answer.",
+    "The choices beat each other like a wheel: the parry stops the direct attack, the disengage and the feint deceive the parry, the counterattack beats the feint, the direct attack and the beat beat the counterattack.",
+    "Distance and ratings count too: training drills raise yours.",
   } },
   { title = "TIPS", text = {
     "Keep just outside their lunge. The distance at the bottom turns yellow, then orange, when a lunge can reach.",
@@ -110,7 +115,7 @@ function Help.scene(app, back)
     else
       local y = 25
       for _, para in ipairs(p.text) do
-        y = y + gfx.para(para, 16, y, W - 32, C.text, 10) + 4
+        y = y + gfx.para(para, 16, y, W - 32, C.text, 9) + 4
       end
     end
     gfx.hints({ { "◄►", "PAGE" }, { "B", "BACK" } }, W / 2, H - 19, "center")

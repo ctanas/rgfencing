@@ -233,6 +233,37 @@ function S.start(app, shot)
     app.set(kb)
   elseif mode == "nations" then
     app.set(require("src.profiles_ui").nations(app, { code = "ROU", onDone = function() end, onCancel = function() end }))
+  elseif mode == "tactical" then
+    -- --menu attack|defend|riposte|parried, or --exchange A,D,RESULT
+    -- (staged, captured --time S later); --gap G between the fencers
+    require("src.tactical").start(app)
+    local p = app.current()
+    local b, m = p.bout, p.match
+    if argValue(args, "--intro") then return end
+    for _ = 1, 900 do
+      b:update(1 / 60)
+      if b.phase == "fence" then break end
+    end
+    local gap = tonumber(argValue(args, "--gap")) or 2.1
+    b.f[1]:place(-gap / 2 - 0.3, "guard")
+    b.f[2]:place(gap / 2 - 0.3, "guard")
+    b.cam = -0.3
+    for _ = 1, 20 do b:update(1 / 60) end
+    m.cool = 99
+    local ex = argValue(args, "--exchange")
+    if ex then
+      local a, d, res = ex:match("^(%w+),(%w+),(%w+)$")
+      local Tac = require("src.tactics")
+      local ctx = m:attackCtx(1)
+      local o = Tac.attackOdds(a, d, ctx)
+      m.last = { stage = "attack", by = 1, act = { a, d }, chance = Tac.landChance(o), res = res }
+      m:stageAttack(1, a, d, res, ctx)
+      b.call = nil
+    else
+      p:shot(argValue(args, "--menu") or "attack")
+      local sel = tonumber(argValue(args, "--sel"))
+      if sel and p.menu2 then p.menu2.sel = sel end
+    end
   elseif mode == "howto" then
     local Help = require("src.help")
     local s = Help.scene(app, function() end)

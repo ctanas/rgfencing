@@ -42,6 +42,7 @@ T.corps = {}
 
 function T.run(n)
   if n == "drills" then return require("src.drilltest").run() end
+  if n == "tactics" then return require("src.tactest").run(T.extra) end
   n = tonumber(n) or 10
   local R = Fencer.measure()
   print(string.format("reach (pelvis to tip): guard %.2f  extension %.2f  lunge %.2f  flèche %.2f m",

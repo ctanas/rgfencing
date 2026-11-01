@@ -9,6 +9,7 @@ local settings = require("src.settings")
 local Menu = require("src.menu")
 local Profile = require("src.profile")
 local Nations = require("src.nations")
+local I = require("src.i18n")
 
 local floor, max, min = math.floor, math.max, math.min
 local C = core.C
@@ -58,7 +59,7 @@ function U.keyboard(app, opts)
   end
   local function type(ch)
     if #s.name >= Profile.MAXNAME then
-      s.warn = "UP TO " .. Profile.MAXNAME .. " LETTERS"
+      s.warn = I.f("UP TO %d LETTERS", Profile.MAXNAME)
       return
     end
     if ch == " " and (#s.name == 0 or s.name[#s.name] == " ") then return end
@@ -163,9 +164,12 @@ end
 
 -- opts: title, code, onDone(code), onCancel()
 function U.nations(app, opts)
-  local list = Nations.LIST
+  -- in the alphabetical order of the language
+  local list = Nations.sorted()
   local s = { sel = 1, top = 1 }
-  if opts.code and Nations.BY[opts.code] then s.sel = Nations.BY[opts.code].index end
+  for i, e in ipairs(list) do
+    if e.code == opts.code then s.sel = i end
+  end
   local ROWS = 10
   local function clampTop()
     if s.sel < s.top then s.top = s.sel end
@@ -174,16 +178,17 @@ function U.nations(app, opts)
   end
   clampTop()
   s.top = max(1, min(s.sel - 4, #list - ROWS + 1))
+  local function letter(i) return I.sortKey(I.tr(list[i].name)):sub(1, 1) end
   local function jumpLetter(dir)
-    local first = list[s.sel].name:sub(1, 1)
+    local first = letter(s.sel)
     local i = s.sel
     repeat
       i = (i - 1 + dir) % #list + 1
-    until list[i].name:sub(1, 1) ~= first or i == s.sel
+    until letter(i) ~= first or i == s.sel
     if dir < 0 then
       -- to the first nation of that letter
-      local l = list[i].name:sub(1, 1)
-      while i > 1 and list[i - 1].name:sub(1, 1) == l do i = i - 1 end
+      local l = letter(i)
+      while i > 1 and letter(i - 1) == l do i = i - 1 end
     end
     s.sel = i
   end
@@ -247,7 +252,7 @@ function U.create(app, done, cancel, title)
     onCancel = cancel,
     onDone = function(name)
       app.set(U.nations(app, {
-        title = name .. " · NATIONALITY",
+        title = I.f("%s · NATIONALITY", name),
         onCancel = function() U.create(app, done, cancel, title) end,
         onDone = function(code)
           Profile.create(name, code)
@@ -293,7 +298,7 @@ local function careerBest(p)
     local b = t.best[i]
     if b and (not bestP or b <= 3) then bestI, bestP = i, b; break end
   end
-  if bestI then return CA.placeName(bestP) .. " AT THE " .. CA.EVENTS[bestI].name end
+  if bestI then return I.f("%s AT THE %s", I.place(bestP), I.tr(CA.EVENTS[bestI].name)) end
 end
 
 local function confirm(app, text, yes, no)
@@ -351,7 +356,7 @@ function U.screen(app)
       onDone = function(code) Profile.update(p, nil, code); again() end }))
   end }
   items[#items + 1] = { label = "DELETE PROFILE", action = function()
-    confirm(app, "Delete " .. p.name .. "? Their career and training progress will be lost.", function()
+    confirm(app, I.f("Delete %s? Their career and training progress will be lost.", p.name), function()
       Profile.delete(p.id)
       if Profile.current() then again() else U.firstRun(app, function() app.toTitle() end) end
     end, again)
@@ -369,12 +374,12 @@ function U.screen(app)
     gfx.text(Nations.name(p.nation), nx, 38, C.dim)
     local st = p.stats
     local pct = st.bouts > 0 and floor(100 * st.wins / st.bouts + 0.5) or 0
-    gfx.text(string.format("BOUTS %d · WON %d (%d%%)", st.bouts, st.wins, pct), 14, 50, C.text)
-    gfx.text(string.format("TOUCHES SCORED %d · RECEIVED %d", st.ts, st.tr), 14, 59, C.text)
+    gfx.text(I.f("BOUTS %d · WON %d (%d%%)", st.bouts, st.wins, pct), 14, 50, C.text)
+    gfx.text(I.f("TOUCHES SCORED %d · RECEIVED %d", st.ts, st.tr), 14, 59, C.text)
     local d = 0
     for _ in pairs(p.drills) do d = d + 1 end
-    gfx.text(string.format("TRAINING DRILLS %d/%d", d, #require("src.training").DRILLS), 14, 68, C.text)
-    gfx.text(gfx.fit(best and ("CAREER BEST: " .. best) or "CAREER: NOT STARTED", W - 28), 14, 77, C.dim)
+    gfx.text(I.f("TRAINING DRILLS %d/%d", d, #require("src.training").DRILLS), 14, 68, C.text)
+    gfx.text(gfx.fit(best and I.f("CAREER BEST: %s", best) or "CAREER: NOT STARTED", W - 28), 14, 77, C.dim)
     m:draw(10, 89, W - 20)
   end
   app.set(s)

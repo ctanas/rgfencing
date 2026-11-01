@@ -414,6 +414,23 @@ function F:startBlade(line)
   self:emit("blade", line)
 end
 
+-- The parry is there when the point arrives (a tactical bout has decided
+-- the exchange): finish it at once in the line of the attack.
+function F:forceParry(line)
+  if self.arm == "parry" and self.parryLine == line and self:parryActive() then return end
+  if self.offense then self:endOffense("withdrawn") end
+  local p = ARM.parry[line]
+  self.arm = "parry"
+  self.pphase = "active"
+  self.at = 0
+  self.ad = T.parryActive / self.spd
+  self.parryLine = line
+  self.parryBonus = 0
+  self.parryWon = false
+  self.line = line
+  self.a1, self.a2, self.bl = p[1], p[2], p[3]
+end
+
 -- Push a spring (hip, lean, head, blade): secondary motion.
 function F:kick(name, v)
   local s = self.sp[name]
@@ -791,7 +808,9 @@ function F:updateLegs(dt)
         self.fphase = "stop"
         self.lt = 0
         s.x, s.hy, s.lean = self.x, self.hy, self.lean
-        self:emit("fleche_end")
+        -- the arm comes back in this same update: say whether the
+        -- attack was still live as the run ended
+        self:emit("fleche_end", self.offense)
       end
     elseif P == "stop" then
       local v = clamp(self.lt / (T.flecheStop / self.spd), 0, 1)

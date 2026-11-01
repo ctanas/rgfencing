@@ -663,7 +663,8 @@ local function drawCalls(b)
   if b.phase == "priority" then
     local who = b.f[b.priorityHolder]
     gfx.text("PRIORITY MINUTE", W / 2, 32, C.orange, "center", true, 2)
-    gfx.text("PRIORITY: " .. who.name .. " (" .. b:side(b.priorityHolder) .. ")", W / 2, 54, C.text, "center", true)
+    local I = require("src.i18n")
+    gfx.text(I.f("PRIORITY: %s (%s)", who.name, I.tr(b:side(b.priorityHolder))), W / 2, 54, C.text, "center", true)
     gfx.text("FIRST TOUCH WINS. NO TOUCH: PRIORITY WINS", W / 2, 66, C.dim, "center", true)
   end
   if b.phase == "break" then

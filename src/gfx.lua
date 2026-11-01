@@ -13,6 +13,7 @@
 
 local core = require("src.core")
 local fontlib = require("src.font")
+local tr = require("src.i18n").tr
 
 local lg = love.graphics
 local floor, max, abs = math.floor, math.max, math.abs
@@ -156,12 +157,15 @@ function gfx.chars(s)
   return t
 end
 
+-- Text is in the current language: each string is looked up in its table
+-- (src/i18n.lua) as it is measured or drawn.
 function gfx.textWidth(s, scale)
-  return gfx.font:getWidth(s) * fs * (scale or 1) / S
+  return gfx.font:getWidth(tr(s)) * fs * (scale or 1) / S
 end
 
 -- Shorten s (on character boundaries) to fit maxw design units, ending in ".".
 function gfx.fit(s, maxw)
+  s = tr(s)
   if gfx.textWidth(s) <= maxw then return s end
   local t = gfx.chars(s)
   while #t > 1 and gfx.textWidth(table.concat(t) .. ".") > maxw do t[#t] = nil end
@@ -171,6 +175,7 @@ end
 -- Text with y at the top of the capitals. align: "left" | "center" | "right".
 -- outline: draw an ink border first (readable over anything).
 function gfx.text(s, x, y, col, align, outline, scale)
+  s = tr(s)
   local k = fs * (scale or 1)
   local w = gfx.font:getWidth(s) * k
   local X = cp(x)
@@ -191,6 +196,7 @@ end
 
 -- Text with a drop shadow instead of a full outline.
 function gfx.stext(s, x, y, col, align, scale)
+  s = tr(s)
   local k = fs * (scale or 1)
   local w = gfx.font:getWidth(s) * k
   local X = cp(x)
@@ -205,7 +211,7 @@ end
 
 -- Word-wrapped paragraph; returns the height used (design units).
 function gfx.para(s, x, y, w, col, lineH)
-  local _, lines = gfx.font:getWrap(s, w * S / fs)
+  local _, lines = gfx.font:getWrap(tr(s), w * S / fs)
   lineH = lineH or 10
   for k, l in ipairs(lines) do gfx.text(l, x, y + (k - 1) * lineH, col) end
   return #lines * lineH

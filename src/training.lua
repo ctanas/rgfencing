@@ -14,6 +14,7 @@ local Ctl = require("src.controller")
 local Fencer = require("src.fencer")
 local Menu = require("src.menu")
 local Profile = require("src.profile")
+local I = require("src.i18n")
 
 local lg = love.graphics
 local floor, max, min, abs = math.floor, math.max, math.min, math.abs
@@ -420,7 +421,7 @@ function Drill:drawHud(b)
   local def = self.def
   local y = 20
   gfx.panel(2, y, W - 4, 12, C.panel, C.edge, 0.85)
-  gfx.text(self.n .. " · " .. def.name, 6, y + 3, C.yellow)
+  gfx.text(self.n .. " · " .. I.tr(def.name), 6, y + 3, C.yellow)
   gfx.text(string.format("%d/%d", min(self.count, def.goal), def.goal), W - 6, y + 3,
     self.done and C.greenL or C.text, "right")
   if self.msg and b.phase ~= "decision" then
@@ -488,14 +489,14 @@ function TR.start(app, n, direct)
     core.color(C.night)
     gfx.rect(0, 0, W, H)
     gfx.panel(10, 8, W - 20, H - 16)
-    gfx.text("DRILL " .. n, W / 2, 13, C.dim, "center")
+    gfx.text(I.f("DRILL %d", n), W / 2, 13, C.dim, "center")
     gfx.text(def.name, W / 2, 24, C.yellow, "center", false, 2)
     local y = 44
     for _, para in ipairs(def.text) do
       y = y + gfx.para(para, 18, y, W - 36, C.text, 10) + 4
     end
     gfx.hints(def.keys, W / 2, H - 42, "center")
-    gfx.text(string.format("GOAL: %d", def.goal), W / 2, H - 27, C.dim, "center")
+    gfx.text(I.f("GOAL: %d", def.goal), W / 2, H - 27, C.dim, "center")
     gfx.hints({ { "A", "START" }, { "B", "BACK" } }, W / 2, H - 19, "center")
   end
   app.set(s)
@@ -505,7 +506,7 @@ function TR.menu(app, sel)
   local items = {}
   for n, def in ipairs(TR.DRILLS) do
     items[#items + 1] = {
-      label = n .. ". " .. def.name,
+      label = n .. ". " .. I.tr(def.name),
       value = function() return Profile.drillDone(n) and "DONE" or "" end,
       action = function() TR.start(app, n) end,
       hint = def.short,
@@ -524,7 +525,7 @@ function TR.menu(app, sel)
     local hint = m:draw(26, 24, W - 52)
     local done = 0
     for n2 = 1, #TR.DRILLS do if Profile.drillDone(n2) then done = done + 1 end end
-    gfx.text(hint or string.format("%d OF %d DRILLS DONE", done, #TR.DRILLS), W / 2, H - 28, C.dim, "center")
+    gfx.text(hint or I.f("%d OF %d DRILLS DONE", done, #TR.DRILLS), W / 2, H - 28, C.dim, "center")
     gfx.hints({ { "A", "START" }, { "B", "BACK" } }, W / 2, H - 19, "center")
   end
   app.set(s)

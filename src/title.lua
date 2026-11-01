@@ -16,6 +16,7 @@ local Names = require("src.names")
 local Help = require("src.help")
 local Profile = require("src.profile")
 local Nations = require("src.nations")
+local I = require("src.i18n")
 
 local lg = love.graphics
 local C = core.C
@@ -93,6 +94,7 @@ function T.new(app, sub)
 
   t.main = Menu.new({
     { label = "QUICK BOUT", action = function() t.mode = "quick" end },
+    { label = "TACTICAL BOUT", action = function() t.mode = "tactical" end },
     { label = "CAREER", action = function() require("src.career").hub(app) end },
     { label = "TRAINING", action = function() require("src.training").menu(app) end },
     { label = "PROFILE", action = function() require("src.profiles_ui").screen(app) end },
@@ -101,7 +103,7 @@ function T.new(app, sub)
     end },
     { label = "OPTIONS", action = function() t.mode = "options" end },
     { label = "QUIT", action = function() love.event.quit() end },
-  })
+  }, { rowH = 11 })
 
   local function cycle(key, n, dir)
     return function() d[key] = (d[key] - 1 + dir) % n + 1 end
@@ -120,13 +122,34 @@ function T.new(app, sub)
     { label = "BACK", action = function() t.mode = "main" end },
   }, { back = function() t.mode = "main" end })
 
+  t.tactical = Menu.new({
+    { label = "OPPONENT", value = function() return AI.LEVELS[d.tlevel].name end,
+      left = cycle("tlevel", 4, -1), right = cycle("tlevel", 4, 1) },
+    { label = "STYLE", value = function() return styleName(d.tstyle) end,
+      left = cycle("tstyle", 6, -1), right = cycle("tstyle", 6, 1) },
+    { label = "TOUCHES", value = function() return tostring(T.TOUCHES[d.ttouches]) end,
+      left = cycle("ttouches", 3, -1), right = cycle("ttouches", 3, 1) },
+    { label = "EN GARDE !", action = function()
+      settings.save()
+      require("src.tactical").start(app)
+    end },
+    { label = "BACK", action = function() t.mode = "main" end },
+  }, { back = function() t.mode = "main" end })
+
   local function toggle(key, after)
     return function()
       d[key] = not d[key]
       if after then after(d[key]) end
     end
   end
+  local function setLang(dir)
+    return function()
+      d.lang = (d.lang - 1 + dir) % #I.NAMES + 1
+      I.set(d.lang)
+    end
+  end
   t.options = Menu.new({
+    { label = "LANGUAGE", value = function() return I.NAMES[d.lang] end, left = setLang(-1), right = setLang(1) },
     { label = "SOUND", value = function() return onoff(d.sound) end,
       left = toggle("sound", audio.setEnabled), right = toggle("sound", audio.setEnabled) },
     { label = "CROWD", value = function() return onoff(d.crowd) end,
@@ -143,10 +166,11 @@ function T.new(app, sub)
     { label = "SHOW FPS", value = function() return onoff(d.fps) end,
       left = toggle("fps"), right = toggle("fps") },
     { label = "BACK", action = function() settings.save(); t.mode = "main" end },
-  }, { back = function() settings.save(); t.mode = "main" end, rowH = 10 })
+  }, { back = function() settings.save(); t.mode = "main" end, rowH = 9 })
 
   t.mode = sub or "main"
   if sub == "quick" then t.main.sel = 1 end
+  if sub == "tactical" then t.main.sel = 2 end
   return t
 end
 
@@ -159,6 +183,7 @@ function T:update(dt)
 end
 
 local OPT_INFO = {
+  "ENGLISH OR ROMANIAN",
   "SOUND EFFECTS",
   "CROWD NOISE AND CHEERS",
   "PRIORITY MARKER, ATTACK LINE ARROW, DISTANCE COLOUR",
@@ -188,14 +213,15 @@ function T:draw()
   local m = self[self.mode]
   local rows = #m.items
   local w = self.mode == "main" and 104 or 176
-  local x, y = math.floor((W - w) / 2), self.mode == "main" and 56 or 43
-  local title = (self.mode == "quick" and "QUICK BOUT") or (self.mode == "options" and "OPTIONS") or nil
+  local x, y = math.floor((W - w) / 2), self.mode == "main" and 54 or 43
+  local title = (self.mode == "quick" and "QUICK BOUT") or (self.mode == "tactical" and "TACTICAL BOUT")
+    or (self.mode == "options" and "OPTIONS") or nil
   if title then
     gfx.panel(x - 4, y - 2, w + 8, rows * m.rowH + 16)
     gfx.text(title, W / 2, y + 1, C.yellow, "center")
     m:draw(x, y + 12, w)
   else
-    gfx.panel(x - 4, y - 2, w + 8, rows * 12 + 5)
+    gfx.panel(x - 4, y - 2, w + 8, rows * m.rowH + 5)
     m:draw(x, y + 1, w)
   end
 
@@ -207,10 +233,19 @@ function T:draw()
     elseif m.sel == 2 then info = T.STYLE_INFO[d.qstyle]
     elseif m.sel == 3 then info = d.qtouches == 3 and "THREE PERIODS OF 3 MIN, BREAK AT 8" or (T.TOUCHES[d.qtouches] == 10 and "TWO PERIODS OF 3 MIN" or "ONE PERIOD OF 3 MIN")
     end
+  elseif self.mode == "tactical" then
+    local d = settings.data
+    if m.sel == 1 then info = T.LEVEL_INFO[d.tlevel]
+    elseif m.sel == 2 then info = T.STYLE_INFO[d.tstyle]
+    elseif m.sel == 3 then info = "MOVE LIVE, CHOOSE EACH EXCHANGE FROM A MENU"
+    elseif m.sel == 4 then
+      local Tac = require("src.tactics")
+      info = I.f("YOU: %s", Tac.ratingText(Tac.playerRatings(Profile.current())))
+    end
   elseif self.mode == "options" then
     info = OPT_INFO[m.sel]
   end
-  if info and info ~= "" then gfx.text(info, W / 2, H - 23, C.dim, "center", true) end
+  if info and info ~= "" then gfx.text(info, W / 2, H - 21, C.dim, "center", true) end
 
   -- the active fencer
   local p = Profile.current()
@@ -228,7 +263,7 @@ function T:draw()
 end
 
 function T:shot(mode)
-  if mode == "options" or mode == "quick" then self.mode = mode end
+  if mode == "options" or mode == "quick" or mode == "tactical" then self.mode = mode end
 end
 
 return T

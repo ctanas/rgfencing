@@ -13,6 +13,7 @@ local audio = require("src.audio")
 local Bout = require("src.bout")
 local Menu = require("src.menu")
 local Help = require("src.help")
+local I = require("src.i18n")
 
 local lg = love.graphics
 local C = core.C
@@ -69,6 +70,7 @@ end
 
 function P:draw()
   self.bout:draw()
+  if self.drawExtra then self:drawExtra() end
   local b = self.bout
   if b.phase == "over" then self:drawResult() end
   if self.paused then
@@ -80,7 +82,7 @@ function P:draw()
     gfx.text(self.opts.title or "PAUSED", W / 2, y + 5, C.yellow, "center")
     self.menu:draw(x + 4, y + 16, w - 8)
   end
-  if self.help then Help.drawControls() end
+  if self.help then Help.drawControls(self.opts.controls) end
 end
 
 function P:drawResult()
@@ -102,7 +104,7 @@ function P:drawResult()
   gfx.panel(x, y, pw, ph)
   local human = wf.human
   local anyHuman = b.f[1].human or b.f[2].human
-  local title = anyHuman and (human and "VICTORY" or "DEFEAT") or (wf.name .. " WINS")
+  local title = anyHuman and (human and "VICTORY" or "DEFEAT") or I.f("%s WINS", wf.name)
   gfx.text(title, W / 2, y + 6, human and C.gold or (anyHuman and C.redL or C.text), "center", true, 2)
   gfx.text(string.format("%d - %d", b.score[1], b.score[2]), W / 2, y + 25, C.text, "center")
   -- a few numbers for each fencer

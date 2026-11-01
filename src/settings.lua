@@ -11,8 +11,12 @@ local S = {
     qlevel = 2,        -- quick bout: 1 novice .. 4 elite
     qstyle = 1,        -- 1 random, then the styles in ai.STYLE_ORDER
     qtouches = 1,      -- 1 = 5, 2 = 10, 3 = 15
+    tlevel = 2,        -- tactical bout: the same three choices
+    tstyle = 1,
+    ttouches = 1,
     side = 1,          -- the end of the piste you fence from: 1 left, 2 right
     res = 2,           -- render resolution, see core.RES: 1 240x160, 2 360x240, 3 720x480
+    lang = 1,          -- 1 English, 2 Română (src/i18n.lua)
   },
   drills = {},         -- training drills completed: drills[n] = true
 }
@@ -50,8 +54,12 @@ function S.sanitize()
   d.qlevel = int(d.qlevel, 1, 4, 2)
   d.qstyle = int(d.qstyle, 1, 6, 1)
   d.qtouches = int(d.qtouches, 1, 3, 1)
+  d.tlevel = int(d.tlevel, 1, 4, 2)
+  d.tstyle = int(d.tstyle, 1, 6, 1)
+  d.ttouches = int(d.ttouches, 1, 3, 1)
   d.side = int(d.side, 1, 2, 1)
   d.res = int(d.res, 1, 3, 2)
+  d.lang = int(d.lang, 1, 2, 1)
 end
 
 function S.save()

@@ -6,7 +6,8 @@ by the real rules: only the trunk is target, the scoring box locks out 300 ms
 after the first hit, and when both lamps light the referee gives the touch by
 **right of way**, and tells you why. The fencers move with weight and momentum,
 in the spirit of the rotoscoped classics, and each player fences under their
-own profile, name and flag.
+own profile, name and flag. A **tactical bout** turns each exchange into a
+choice from a menu, and the whole game can be played in **English or Romanian**.
 
 ![An exchange between two Elite fencers: attack, parry, riposte, and the referee's call](screenshots/bout.gif)
 
@@ -17,6 +18,8 @@ own profile, name and flag.
 | ![Career: the pool sheet](screenshots/pool.png) | ![Career: the table of 8](screenshots/bracket.png) |
 | ![Training: attack the open line](screenshots/drill.png) | ![The salute before the bout](screenshots/salute.png) |
 | ![Your profile](screenshots/profile.png) | ![Typing a name, accents included](screenshots/keyboard.png) |
+| ![Tactical bout: choosing the attack](screenshots/tactical.png) | ![Tactical bout: a feint caught by a counterattack](screenshots/exchange.png) |
+| ![Tactical bout, in Romanian](screenshots/romana.png) | |
 
 *Screenshots and the clip are rendered by the game itself at 360×240, shown at 720×480 (`./build.sh shots`).*
 
@@ -75,6 +78,15 @@ longer than one in the other line. With **Options → Assists** on (the default)
 a yellow ▼ marks the fencer with priority, an orange arrow shows the line of an
 incoming attack, and the distance readout turns yellow, then orange, once a
 lunge can reach.
+
+## Language
+
+**Options → Language** switches between English and Romanian (Română) at once:
+menus, help, drills, the referee's decisions and the nation names. The
+referee's calls stay in French, as on a real piste (*En garde ! Prêts ? Allez !
+Halte !*). The Romanian uses the terms of Romanian fencing: fandare,
+pas-fandare, fleșă, degajament, bătaie, fentă, paradă, ripostă, remiză,
+contraatac, braț în linie, prioritate, tușă.
 
 ## Foil, as the referee sees it
 
@@ -135,6 +147,50 @@ nationality or delete a profile.
 ### Quick bout
 
 Pick the opponent's level and style and the bout length (5, 10 or 15 touches).
+
+### Tactical bout
+
+Footwork stays live (←/→, L1/R1), but the blade work is chosen from a menu.
+Press **A** to attack and the bout stops: pick the attack. When the opponent
+attacks, the bout stops and you pick the defence, without knowing which attack
+is coming. After a parry, the parrier picks a riposte and the fencer who was
+parried picks the answer to it, and so on through counter-ripostes. When an
+attack falls short, the defender may attack the recovery. It goes on until the
+referee halts the phrase.
+
+| Attacks | Defences | Ripostes | Answers to a riposte |
+|---|---|---|---|
+| Direct lunge | Simple parry | Direct | Counter-parry |
+| Disengage | Circular parry | Indirect (with a disengage) | Remise |
+| Step-lunge | Retreat | Delayed | Recover back |
+| Beat-lunge | Counterattack | | |
+| Feint-disengage (one-two) | | | |
+| Flèche | | | |
+
+The outcome is drawn from how each choice fares against the other one, the
+fencing **tactical wheel**: the parry stops a simple attack; the disengage and
+the feint deceive a simple parry, and the circular parry catches the disengage;
+the counterattack has no priority against a simple attack but lands a tempo
+ahead of a feint or a step forward; the beat spoils a stop-hit; a retreat makes
+a lunge fall short, but a step-lunge or a flèche can still reach. A direct
+riposte beats a remise, the counter-parry stops a direct riposte, and a delayed
+riposte loses to the remise. Then:
+
+- **Distance** counts: a lunge from step-lunge distance usually falls short, a
+  step-lunge from too close ends in body contact, and a retreat with your back
+  line behind you can cost a touch. The menu shows the distance.
+- **Ratings** (attack, defence, timing and footwork, shown before the first
+  touch) shift the odds. The opponent's come from its level and style; yours
+  start at club level and rise with each training drill completed and with your
+  wins.
+- **The opponent reads you.** Stronger opponents keep count of what you choose
+  and answer it. You can read them too: the menu shows what they have chosen
+  most so far.
+
+The exchange is then fenced out in slow motion by the same fencers, scoring box
+and referee as a real-time bout, so the lamps, the priority and the referee's
+call are those of the real rules. With **Options → Assists** on, the banner over
+the fencers shows the chance the attack had.
 
 ### Career
 
@@ -289,7 +345,8 @@ backdrop keeps its pixel grain.
 ./build.sh muos           # just the muxapp (also: portmaster, love)
 ./build.sh test 10        # headless: AI vs AI, levels and styles, touch statistics
 ./build.sh drills         # headless: a scripted student completes every drill
-./build.sh smoke          # drives every screen with scripted input (opens a window)
+./build.sh tactics 2      # headless: every tactical exchange staged as drawn, then CPU-vs-CPU bouts
+./build.sh smoke          # drives every screen with scripted input (opens a window; "smoke ro" in Romanian)
 ./build.sh shots          # renders the README screenshots and clip (clip needs Python + Pillow)
 ./build.sh run            # play on this PC
 ```
@@ -317,6 +374,10 @@ The muxapp's LÖVE runtime comes from [2048 Plus](https://github.com/saitamasahi
 | `src/career.lua`, `src/training.lua` | The career and the drills |
 | `src/profile.lua`, `src/profiles_ui.lua` | Profiles; the name keyboard, nation picker and profile screen |
 | `src/nations.lua` | 112 nations and their pixel flags |
+| `src/tactics.lua` | Tactical bout: the actions, the odds, the CPU's choices and the staging of each outcome |
+| `src/tactical.lua` | Tactical bout on screen: the menus, the banner, the ratings card |
+| `src/i18n.lua`, `src/lang_ro.lua` | Languages; the Romanian table is generated by `tools/lang_ro.py` |
+| `tools/font360.py` | Generates the 7×10 font (`src/font360.lua`) |
 
 ## License
 

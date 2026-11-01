@@ -23,6 +23,7 @@ local app = {}
 local scene
 local canvas
 local shot
+local smoke = false
 
 local function hasArg(args, name)
   for _, a in ipairs(args) do if a == name then return true end end
@@ -100,11 +101,19 @@ function love.load(args)
   love.math.setRandomSeed(os.time())
   settings.load()
   settings.sanitize()
+  if argValue(args, "--lang") then
+    settings.data.lang = tonumber(argValue(args, "--lang")) or 1
+  elseif argValue(args, "--shot") then
+    settings.data.lang = 1     -- screenshots are in English unless asked
+  end
+  require("src.i18n").set(settings.data.lang)
 
   if hasArg(args, "--autotest") then
     io.stdout:setvbuf("no")
     core.testMode = true
-    require("src.autotest").run(argValue(args, "--autotest"))
+    local at = require("src.autotest")
+    at.extra = argValue(args, "--n")
+    at.run(argValue(args, "--autotest"))
     love.event.quit()
     return
   end
@@ -148,11 +157,17 @@ function love.load(args)
   else
     app.toTitle()
   end
-  if hasArg(args, "--smoke") then require("src.smoke").install(app) end
+  if hasArg(args, "--smoke") then
+    -- as fast as the machine goes, at a fixed 60 Hz step
+    smoke = true
+    love.window.setVSync(0)
+    io.stdout:setvbuf("no")
+    require("src.smoke").install(app)
+  end
 end
 
 function love.update(dt)
-  if shot then dt = 1 / 60 end
+  if shot or smoke then dt = 1 / 60 end
   dt = math.min(dt, 1 / 20)
   core.time = core.time + dt
   input.update(dt)

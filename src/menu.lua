@@ -86,18 +86,19 @@ function M:draw(x, y, w)
       if it.flag then
         lx = lx + require("src.nations").drawFlag(it.flag, lx, yy + 1) + 4
       end
-      gfx.text(it.label, lx, yy + 2, col)
+      local ty = (rh <= 9) and 1 or 2
+      gfx.text(it.label, lx, yy + ty, col)
       if it.value then
         local v = it.value()
         local vx = x + w - 4
         if sel and (it.left or it.right) then
-          gfx.text("►", vx, yy + 2, C.yellow, "right")
+          gfx.text("►", vx, yy + ty, C.yellow, "right")
           vx = vx - 8
           local vw = gfx.textWidth(v)
-          gfx.text(v, vx, yy + 2, C.yellow, "right")
-          gfx.text("◄", vx - vw - 3, yy + 2, C.yellow, "right")
+          gfx.text(v, vx, yy + ty, C.yellow, "right")
+          gfx.text("◄", vx - vw - 3, yy + ty, C.yellow, "right")
         else
-          gfx.text(v, vx, yy + 2, sel and C.yellow or C.dim, "right")
+          gfx.text(v, vx, yy + ty, sel and C.yellow or C.dim, "right")
         end
       end
     end

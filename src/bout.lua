@@ -17,6 +17,7 @@ local core = require("src.core")
 local Fencer = require("src.fencer")
 local Ctl = require("src.controller")
 local audio = require("src.audio")
+local I = require("src.i18n")
 
 local abs, max, min, floor = math.abs, math.max, math.min, math.floor
 
@@ -305,7 +306,7 @@ function B:events(early, quiet)
         if t == "offense_end" then
           self:onOffenseEnd(i, e.a)
         elseif t == "lunge_full" or t == "fleche_end" then
-          if not self.lights[i] and f.offense then
+          if not self.lights[i] and (f.offense or (t == "fleche_end" and e.a)) then
             self.stats[i].short = (self.stats[i].short or 0) + 1
             f:endOffense("short")
           end
@@ -451,7 +452,17 @@ function B:checkHits()
       local tx, ty = a:tipWorld()
       local region = d:regionAt(tx, ty)
       if region then
-        if d:parryActive() and d.parryLine == a.attackLine then
+        -- in a tactical bout the exchange's outcome is already drawn, and
+        -- its director says what this contact is
+        local v = self.o.judge and self.o.judge(self, i, region)
+        if v == "parry" then
+          d:forceParry(a.attackLine)
+          self:onParry(3 - i, i)
+        elseif v == "valid" or v == "off" then
+          self:registerHit(i, v, tx, ty)
+        elseif v == "ignore" then
+          -- no contact
+        elseif d:parryActive() and d.parryLine == a.attackLine then
           self:onParry(3 - i, i)
         else
           self:registerHit(i, region, tx, ty)
@@ -574,7 +585,7 @@ function B:decide()
         local o = 3 - h
         d.scorer = h
         d.kind = self.hitKind[h]
-        d.line1 = self:label(h) .. " FROM THE " .. self:side(h)
+        d.line1 = I.f("%s FROM THE " .. self:side(h), I.tr(self:label(h)))
         local ok = self.hitKind[o]
         if d.kind == "line" then
           d.line3 = "ATTACK INTO THE POINT IN LINE"
@@ -588,7 +599,7 @@ function B:decide()
         end
         d.why = "priority"
       else
-        d.line1 = self:label(h) .. " OFF TARGET"
+        d.line1 = I.f("%s OFF TARGET", I.tr(self:label(h)))
         d.line3 = "THE PRIORITY HIT WAS OFF TARGET"
         d.why = "priorityoff"
       end
@@ -597,7 +608,7 @@ function B:decide()
       if L[i] == "valid" then
         d.scorer = i
         d.kind = self.hitKind[i]
-        d.line1 = self:label(i) .. " FROM THE " .. self:side(i)
+        d.line1 = I.f("%s FROM THE " .. self:side(i), I.tr(self:label(i)))
         if d.kind == "counterattack" and self.rowAtHit and self.rowAtHit.holder == 3 - i then
           d.line3 = "COUNTERATTACK IN TIME"
         end

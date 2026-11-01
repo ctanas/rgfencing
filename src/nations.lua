@@ -140,6 +140,19 @@ end
 table.sort(N.LIST, function(a, b) return a.name < b.name end)
 for i, n in ipairs(N.LIST) do n.index = i end
 
+-- The list in the alphabetical order of the current language.
+local sorted, sortedFor
+function N.sorted()
+  local I = require("src.i18n")
+  if sortedFor ~= I.lang then
+    sorted = {}
+    for _, n in ipairs(N.LIST) do sorted[#sorted + 1] = n end
+    table.sort(sorted, function(a, b) return I.sortKey(I.tr(a.name)) < I.sortKey(I.tr(b.name)) end)
+    sortedFor = I.lang
+  end
+  return sorted
+end
+
 function N.name(code)
   local n = code and N.BY[code]
   return n and n.name or ""

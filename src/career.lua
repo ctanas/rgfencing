@@ -16,6 +16,7 @@ local Ctl = require("src.controller")
 local Menu = require("src.menu")
 local Names = require("src.names")
 local Profile = require("src.profile")
+local I = require("src.i18n")
 local Nations = require("src.nations")
 
 local floor, max, min, abs, exp = math.floor, math.max, math.min, math.abs, math.exp
@@ -272,10 +273,7 @@ function CA.unlocked(i)
   return b ~= nil and b <= 3
 end
 
-local function placeName(p)
-  if p == 1 then return "1ST" elseif p == 2 then return "2ND" elseif p == 3 then return "3RD" end
-  return p .. "TH"
-end
+local placeName = I.place
 CA.placeName = placeName
 
 -- A fencer's name and nation; the player's come from the active profile.
@@ -350,7 +348,7 @@ local function drawPool(p, top)
   local pool = ev.pools[p]
   local x0, cw = 104, 14
   local y0 = top
-  gfx.text("POOL " .. p, 6, y0, C.dim)
+  gfx.text(I.f("POOL %d", p), 6, y0, C.dim)
   for k = 1, 6 do gfx.text(tostring(k), x0 + (k - 1) * cw + 7, y0, C.dim, "center") end
   gfx.text("V", 196, y0, C.dim, "center")
   gfx.text("IND", 222, y0, C.dim, "center")
@@ -527,9 +525,9 @@ function CA.eventScreen(app)
       for _, o in ipairs(ev.pools[1]) do if o ~= 1 and CA.result(1, o) then done = done + 1 end end
       if opp then
         local o = ev.field[opp]
-        gfx.text(string.format("BOUT %d OF 5", done + 1), 8, 112, C.dim)
-        gfx.text("NEXT: " .. o.last .. " " .. o.nation, 8, 123, C.text)
-        gfx.text("STYLE: " .. AI.STYLE_NAME[o.style], 8, 133, C.dim)
+        gfx.text(I.f("BOUT %d OF 5", done + 1), 8, 112, C.dim)
+        gfx.text(I.f("NEXT: %s %s", o.last, o.nation), 8, 123, C.text)
+        gfx.text(I.f("STYLE: %s", I.tr(AI.STYLE_NAME[o.style])), 8, 133, C.dim)
       else
         gfx.text("YOUR POOL IS DONE", 8, 118, C.text)
       end
@@ -539,13 +537,13 @@ function CA.eventScreen(app)
       drawRanking()
       gfx.hints({ { "A", ev.place and "RESULT" or "TABLE OF 8" }, { "B", "CAREER" } }, W - 6, H - 12, "right")
     elseif ev.stage == "de" then
-      frame(E.name, "DIRECT ELIMINATION · BOUTS TO " .. E.de)
+      frame(E.name, I.f("DIRECT ELIMINATION · BOUTS TO %d", E.de))
       drawBracket()
       local m = CA.playerMatch()
       if m then
         local o = ev.field[(m[1] == 1) and m[2] or m[1]]
-        gfx.text("NEXT: " .. o.last .. " " .. o.nation, 8, 125, C.text)
-        gfx.text("STYLE: " .. AI.STYLE_NAME[o.style], 8, 135, C.dim)
+        gfx.text(I.f("NEXT: %s %s", o.last, o.nation), 8, 125, C.text)
+        gfx.text(I.f("STYLE: %s", I.tr(AI.STYLE_NAME[o.style])), 8, 135, C.dim)
       end
       gfx.hints({ { "A", "FENCE" }, { "B", "CAREER" } }, W - 6, H - 12, "right")
     elseif ev.stage == "done" then
@@ -555,14 +553,14 @@ function CA.eventScreen(app)
         medal(W / 2, 40, p)
         gfx.text(({ "CHAMPION!", "SILVER MEDAL", "BRONZE MEDAL" })[p], W / 2, 58, ({ C.gold, C.silver, C.bronze })[p], "center", true, 2)
       else
-        gfx.text(placeName(p) .. " PLACE", W / 2, 50, C.text, "center", true, 2)
+        gfx.text(I.f("%s PLACE", placeName(p)), W / 2, 50, C.text, "center", true, 2)
       end
-      gfx.text("YOU FINISHED " .. placeName(p) .. " OF 12", W / 2, 82, C.text, "center")
+      gfx.text(I.f("YOU FINISHED %s OF 12", placeName(p)), W / 2, 82, C.text, "center")
       local nxt = CA.EVENTS[ev.idx + 1]
       if p <= 3 and nxt then
-        gfx.text("UNLOCKED: " .. nxt.name, W / 2, 96, C.greenL, "center")
+        gfx.text(I.f("UNLOCKED: %s", I.tr(nxt.name)), W / 2, 96, C.greenL, "center")
       elseif nxt and not CA.unlocked(ev.idx + 1) then
-        gfx.text("A MEDAL HERE UNLOCKS THE " .. nxt.name, W / 2, 96, C.dim, "center")
+        gfx.text(I.f("A MEDAL HERE UNLOCKS THE %s", I.tr(nxt.name)), W / 2, 96, C.dim, "center")
       end
       gfx.hints({ { "A", "CAREER" } }, W / 2, H - 14, "center")
     end
@@ -580,7 +578,7 @@ function CA.hub(app)
   local items = {}
   if save.ev then
     local E = CA.EVENTS[save.ev.idx]
-    items[#items + 1] = { label = "CONTINUE: " .. E.name, action = function() CA.eventScreen(app) end, hint = "EVENT IN PROGRESS" }
+    items[#items + 1] = { label = I.f("CONTINUE: %s", I.tr(E.name)), action = function() CA.eventScreen(app) end, hint = "EVENT IN PROGRESS" }
   end
   for i, E in ipairs(CA.EVENTS) do
     items[#items + 1] = {
@@ -588,12 +586,12 @@ function CA.hub(app)
       value = function()
         local b = save.best[i]
         if not CA.unlocked(i) then return "LOCKED" end
-        return b and ("BEST " .. placeName(b)) or ""
+        return b and I.f("BEST %s", placeName(b)) or ""
       end,
       disabled = function() return save.ev ~= nil or not CA.unlocked(i) end,
       action = function() CA.newEvent(i); CA.eventScreen(app) end,
-      hint = string.format("DE BOUTS TO %d · OPPONENTS %s TO %s", E.de,
-        AI.params(E.lo).name, AI.params(E.hi).name),
+      hint = I.f("DE BOUTS TO %d · OPPONENTS %s TO %s", E.de,
+        I.tr(AI.params(E.lo).name), I.tr(AI.params(E.hi).name)),
     }
   end
   items[#items + 1] = { label = "BACK", action = function() app.toTitle() end }
@@ -608,7 +606,7 @@ function CA.hub(app)
       if b and b <= 3 then medal(W - 18 - 52, 28 + (i - 1 + (save.ev and 1 or 0)) * 12 + 2, b) end
     end
     local md = save.medals
-    gfx.text(string.format("MEDALS  %d GOLD · %d SILVER · %d BRONZE", md.gold or 0, md.silver or 0, md.bronze or 0),
+    gfx.text(I.f("MEDALS  %d GOLD · %d SILVER · %d BRONZE", md.gold or 0, md.silver or 0, md.bronze or 0),
       W / 2, H - 25, C.dim, "center")
     if hint then gfx.text(hint, W / 2, H - 14, C.dim, "center") end
   end
