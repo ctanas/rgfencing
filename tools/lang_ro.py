@@ -269,7 +269,17 @@ RO = {
   "UNLOCKED: %s": "DEBLOCAT: %s",
   "A MEDAL HERE UNLOCKS THE %s": "O MEDALIE AICI DEBLOCHEAZĂ %s",
   "CONTINUE: %s": "CONTINUĂ: %s",
-  "EVENT IN PROGRESS": "COMPETIȚIE ÎN DESFĂȘURARE",
+  "EVENT IN PROGRESS · %s": "ÎN DESFĂȘURARE · %s",
+  "HOW WILL YOU FENCE?": "CUM VREI SĂ TRAGI?",
+  "TACTICAL": "TACTIC",
+  "MODE": "MOD",
+  "MODE: %s": "MOD: %s",
+  "SWITCH ANY TIME FROM THE PAUSE MENU": "SE POATE SCHIMBA ORICÂND DIN PAUZĂ",
+  "ONLY FENCERS FROM %s": "DOAR SCRIMERI DIN %s",
+  "Fence every action yourself, in real time: lunges, parries, feints and flèches on the buttons.":
+    "Faci singur fiecare acțiune, în timp real: fandări, parade, fente și fleșe, din butoane.",
+  "Move live with ←/→, L1 and R1. When someone attacks, the bout stops and you choose the blade work from a menu.":
+    "Te miști liber cu ←/→, L1 și R1. Când cineva atacă, asaltul se oprește și alegi acțiunile cu arma dintr-un meniu.",
   "LOCKED": "BLOCAT",
   "BEST %s": "%s",
   "DE BOUTS TO %d · OPPONENTS %s TO %s": "ED LA %d · ADVERSARI %s-%s",

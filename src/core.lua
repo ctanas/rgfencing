@@ -1,7 +1,7 @@
 -- Shared constants, palette and small helpers used by every module.
 
 local core = {
-  VERSION = "0.4.0",
+  VERSION = "0.5.0",
   -- Layout ("design") units: every screen is laid out in a 240x160 space.
   W = 240,
   H = 160,

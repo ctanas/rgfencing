@@ -19,7 +19,7 @@ choice from a menu, and the whole game can be played in **English or Romanian**.
 | ![Training: attack the open line](screenshots/drill.png) | ![The salute before the bout](screenshots/salute.png) |
 | ![Your profile](screenshots/profile.png) | ![Typing a name, accents included](screenshots/keyboard.png) |
 | ![Tactical bout: choosing the attack](screenshots/tactical.png) | ![Tactical bout: a feint caught by a counterattack](screenshots/exchange.png) |
-| ![Tactical bout, in Romanian](screenshots/romana.png) | |
+| ![Tactical bout, in Romanian](screenshots/romana.png) | ![Career: arcade or tactical, chosen when a competition starts](screenshots/modes.png) |
 
 *Screenshots and the clip are rendered by the game itself at 360×240, shown at 720×480 (`./build.sh shots`).*
 
@@ -144,19 +144,85 @@ nationality or delete a profile.
 
 ## Game modes
 
+Every bout against the CPU (quick bout, tactical bout or career) can be fenced
+in **arcade** mode, every action on the buttons, or in **tactical** mode, live
+footwork with the blade work chosen from menus. **Mode** in the pause menu
+switches between them at any point of a bout; the switch takes effect when you
+resume.
+
 ### Quick bout
 
 Pick the opponent's level and style and the bout length (5, 10 or 15 touches).
 
 ### Tactical bout
 
-Footwork stays live (←/→, L1/R1), but the blade work is chosen from a menu.
-Press **A** to attack and the bout stops: pick the attack. When the opponent
-attacks, the bout stops and you pick the defence, without knowing which attack
-is coming. After a parry, the parrier picks a riposte and the fencer who was
-parried picks the answer to it, and so on through counter-ripostes. When an
-attack falls short, the defender may attack the recovery. It goes on until the
-referee halts the phrase.
+**In short.** You move your fencer freely in real time (←/→, L1/R1), but the
+blade work is chosen from menus.
+
+1. **Starting an exchange.** Press A and the bout freezes so you can pick an
+   attack: direct lunge, disengage, step-lunge, beat-lunge, feint-disengage or
+   flèche. When the CPU attacks, the bout freezes and you pick a defence
+   (simple parry, circular parry, retreat or counterattack) without knowing
+   which attack is coming.
+2. **Deciding the result.** Both choices are compared like rock-paper-scissors,
+   following the real "tactical wheel":
+   - a parry stops a direct attack;
+   - a disengage or feint deceives a simple parry, and a circular parry catches
+     a disengage;
+   - a counterattack beats a feint, but loses to a direct attack or a beat;
+   - a retreat makes a lunge fall short, but not a step-lunge or a flèche.
+3. **Adjusting the odds.** Three things shift the chances:
+   - **Distance:** a lunge from too far falls short, and retreating with no
+     room behind can cost a touch.
+   - **Ratings:** attack, defence, timing and footwork. Yours grow with the
+     training drills you complete and with your wins.
+   - **Habits:** stronger CPUs notice what you pick often and counter it. The
+     menu also shows what the CPU has picked most so far.
+4. **Seeing it play out.** The result is drawn at random from those odds, then
+   played in slow motion by the normal fencers and referee. The lights, right
+   of way and the referee's call are the real ones.
+5. **Continuing the exchange.**
+   - After a parry: the side that parried picks a riposte (direct, indirect or
+     delayed), and the other side picks a counter-parry, a remise or recovering
+     back.
+   - After an attack that falls short: the defender may attack the opponent
+     while they recover.
+   - Otherwise everyone returns to free movement until the next attack.
+
+**Pe scurt, în română.** Te miști liber, în timp real (←/→, L1/R1), dar
+acțiunile cu arma le alegi din meniuri.
+
+1. **Începutul fazei.** Apeși A și asaltul se oprește ca să alegi atacul:
+   fandare directă, degajament, pas-fandare, bătaie-fandare, fentă-degajament
+   sau fleșă. Când atacă adversarul, asaltul se oprește și alegi apărarea
+   (paradă simplă, paradă circulară, retragere sau contraatac), fără să știi ce
+   atac vine.
+2. **Cine câștigă faza.** Cele două alegeri se compară ca la
+   piatră-foarfecă-hârtie, după „roata tactică" din scrima reală:
+   - parada oprește atacul direct;
+   - degajamentul și fenta înșală parada simplă, iar parada circulară prinde
+     degajamentul;
+   - contraatacul bate fenta, dar pierde în fața atacului direct și a bătăii;
+   - retragerea face ca fandarea să rămână scurtă, dar nu și pas-fandarea sau
+     fleșa.
+3. **Ce modifică șansele.**
+   - **Distanța:** o fandare de prea departe rămâne scurtă, iar retragerea fără
+     spațiu în spate poate costa o tușă.
+   - **Atributele:** atac, apărare, simțul timpului și deplasare. Ale tale cresc
+     cu exercițiile de antrenament făcute și cu victoriile.
+   - **Obiceiurile:** adversarii mai buni observă ce alegi des și răspund pe
+     măsură. Meniul îți arată și ție ce a ales adversarul cel mai des până acum.
+4. **Faza pe planșă.** Rezultatul se trage la sorți după aceste șanse, apoi e
+   jucat cu încetinitorul de aceiași scrimeri și același arbitru ca într-un
+   asalt normal: lămpile, prioritatea și decizia arbitrului sunt cele reale.
+5. **Continuarea fazei.**
+   - După o paradă: cel care a parat alege riposta (directă, indirectă sau
+     întârziată), iar celălalt alege contraparada, remiza sau revenirea înapoi.
+   - După un atac scurt: cel care s-a apărat poate ataca pe revenirea
+     adversarului.
+   - Altfel, amândoi se mișcă din nou liber până la următorul atac.
+
+#### In detail
 
 | Attacks | Defences | Ripostes | Answers to a riposte |
 |---|---|---|---|
@@ -200,6 +266,11 @@ indicator and touches scored, then a direct elimination table of 8. You fence
 your own bouts; the others are simulated from the fencers' ratings. A medal
 (top 3) unlocks the next competition. The career is saved after every bout; you
 can leave a bout from the pause menu and fence it later.
+
+When a competition starts you choose arcade or tactical mode for your bouts.
+A switch in the pause menu holds for the rest of that competition, and the
+event screen shows the current mode. The National Championships are fenced
+only between fencers of your own nationality.
 
 Fencers go by one name, as on a fencing scoreboard.
 
@@ -375,7 +446,7 @@ The muxapp's LÖVE runtime comes from [2048 Plus](https://github.com/saitamasahi
 | `src/profile.lua`, `src/profiles_ui.lua` | Profiles; the name keyboard, nation picker and profile screen |
 | `src/nations.lua` | 112 nations and their pixel flags |
 | `src/tactics.lua` | Tactical bout: the actions, the odds, the CPU's choices and the staging of each outcome |
-| `src/tactical.lua` | Tactical bout on screen: the menus, the banner, the ratings card |
+| `src/tactical.lua` | Bouts against the CPU, arcade or tactical and switchable mid-bout; the tactical menus, the banner, the ratings card |
 | `src/i18n.lua`, `src/lang_ro.lua` | Languages; the Romanian table is generated by `tools/lang_ro.py` |
 | `tools/font360.py` | Generates the 7×10 font (`src/font360.lua`) |
 

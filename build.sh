@@ -152,6 +152,7 @@ build_shots() {
     run_shot tactical --mode tactical --menu attack --sel 2 --time 0.3
     run_shot exchange --mode tactical --exchange feint,counter,counter --time 0.9
     run_shot romana --mode tactical --menu defend --sel 3 --time 0.3 --lang 2
+    run_shot modes --mode choose --time 0.5
     run_shot bout --mode film --act bout --every 2 --start 1.2 --dur 7 --seed 21
     for r in 1 2 3; do
         (cd "$ROOT" && "$love" . --shot "res$r" --res "$r" --mode pose --pose lunge,parry --gap 2.15 --time 0.6 >/dev/null)
@@ -161,7 +162,7 @@ build_shots() {
         Darwin) dir="$HOME/Library/Application Support/LOVE/rgfencing" ;;
         *) dir="${XDG_DATA_HOME:-$HOME/.local/share}/love/rgfencing" ;;
     esac
-    for f in title lunge decision lockout salute pool bracket drill training quick profile keyboard tactical exchange romana; do
+    for f in title lunge decision lockout salute pool bracket drill training quick profile keyboard tactical exchange romana modes; do
         cp "$dir/$f.png" "$ROOT/screenshots/$f.png"
     done
     # the animated bout clip and the resolution comparison (needs Python 3 with Pillow)

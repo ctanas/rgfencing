@@ -7,6 +7,8 @@
 --   pose --pose A,B [--gap G]   two fencers frozen in poses
 --        poses: guard low lunge extend parry parrylow fleche salute stand victory
 --   pool | bracket        career screens with a simulated event
+--   choose                the arcade/tactical choice before a competition
+--   pause [--tactical]    a quick bout's pause menu, with its MODE row
 
 local core = require("src.core")
 local Bout = require("src.bout")
@@ -273,7 +275,15 @@ function S.start(app, shot)
     require("src.training").menu(app)
   elseif mode == "drill" then
     require("src.training").start(app, tonumber(argValue(args, "--drill")) or 1, argValue(args, "--go") ~= nil)
-  elseif mode == "career" or mode == "pool" or mode == "bracket" or mode == "event" then
+  elseif mode == "pause" then
+    require("src.title").startQuick(app)
+    local p = app.current()
+    if argValue(args, "--tactical") then
+      p.tactical = true
+      p:applyMode()
+    end
+    p.paused = true
+  elseif mode == "career" or mode == "pool" or mode == "bracket" or mode == "event" or mode == "choose" then
     require("src.career").shot(app, mode, args)
   else
     app.toTitle()

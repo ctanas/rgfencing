@@ -1,9 +1,12 @@
--- Tactical bout on screen: live footwork, and a menu at each exchange
--- (src/tactics.lua decides and stages the outcome).
+-- Bouts against the CPU, in either of two modes the player can switch
+-- between from the pause menu, even in the middle of a bout:
 --
---   ←/→ L1 R1   footwork, live
---   A           attack: the bout stops and you choose how
---   when they attack, after a parry, after a short attack: choose your answer
+--   ARCADE    every action on the buttons (src/play.lua alone)
+--   TACTICAL  live footwork, and a menu at each exchange (src/tactics.lua
+--             decides and stages the outcome):
+--     ←/→ L1 R1   footwork, live
+--     A           attack: the bout stops and you choose how
+--     when they attack, after a parry, after a short attack: choose your answer
 
 local core = require("src.core")
 local gfx = require("src.gfx")
@@ -36,60 +39,107 @@ TP.CONTROLS = {
   { "START", "PAUSE" },
 }
 
--- An AI that only moves its feet: its blade actions come from the menus.
-local function footworkAI(level, style)
-  local ai = AI.new(level, style)
-  local S = {}
-  for k, v in pairs(ai.S) do S[k] = v end
-  S.attack, S.fleche, S.beat, S.line, S.counter, S.remise = 0, 0, 0, 0, 0, 0
-  ai.S = S
-  return ai
+TP.MODE_NAME = { [false] = "ARCADE", [true] = "TACTICAL" }
+
+-- The CPU's style with its blade actions taken out: in tactical mode it
+-- only moves its feet, and its blade work comes from the menus.
+local function footworkStyle(S)
+  local F = {}
+  for k, v in pairs(S) do F[k] = v end
+  F.attack, F.fleche, F.beat, F.line, F.counter, F.remise = 0, 0, 0, 0, 0, 0
+  return F
 end
 
+-- A bout against the CPU. o: the options of Play.new (touches, title,
+-- restart, onFinish, onQuit, quitLabel...) plus
+--   opp = { name, nation }, level, style    the CPU fencer
+--   tactical                                 start in tactical mode
+--   onMode(tactical)                         the player switched mode
+-- The pause menu gets a MODE row; a switch takes effect on resuming.
+function TP.versus(app, o)
+  local side = settings.data.side
+  local me, nation = Profile.fencer()
+  local human = Ctl.human(input)
+  local ai = AI.new(o.level, o.style)
+  local player = { name = me, nation = nation, human = true, ctl = human }
+  local opp = { name = o.opp.name, nation = o.opp.nation, ctl = ai, spd = ai.spd }
+  o.left = (side == 1) and player or opp
+  o.right = (side == 1) and opp or player
+  local p = setmetatable(Play.new(app, o), TP)
+  p.side, p.level, p.style = side, o.level, o.style
+  p.human, p.ai = human, ai
+  p.fullS, p.footS = ai.S, footworkStyle(ai.S)
+  p.tactical = o.tactical and true or false
+  local function flip()
+    p.tactical = not p.tactical
+    if o.onMode then o.onMode(p.tactical) end
+  end
+  table.insert(p.menu.items, 2, {
+    label = "MODE", value = function() return TP.MODE_NAME[p.tactical] end, left = flip, right = flip,
+  })
+  p:applyMode()
+  return p
+end
+
+-- The tactical bout set up from the title screen: it starts in tactical mode.
 function TP.start(app)
   local d = settings.data
+  local tactical = true
   local function go()
-    local level = d.tlevel
     local style = d.tstyle == 1 and AI.STYLE_ORDER[love.math.random(1, #AI.STYLE_ORDER)] or AI.STYLE_ORDER[d.tstyle - 1]
-    local ai = footworkAI(level, style)
     local nm = (love.math.random() < 0.15) and Names.RIVALS[love.math.random(1, #Names.RIVALS)] or Names.random()
-    local me, nation = Profile.fencer()
     local side = d.side
-    local live = {
-      [side] = Tac.footworkOnly(Ctl.human(input)),
-      [3 - side] = Tac.footworkOnly(ai),
-    }
-    local player = { name = me, nation = nation, human = true, ctl = live[side] }
-    local opp = { name = nm.last, nation = nm.nation, ctl = live[3 - side], spd = ai.spd }
-    local p = Play.new(app, {
-      left = (side == 1) and player or opp,
-      right = (side == 1) and opp or player,
+    app.set(TP.versus(app, {
+      opp = { name = nm.last, nation = nm.nation }, level = d.tlevel, style = style,
+      tactical = tactical,
+      onMode = function(v) tactical = v end,
       touches = require("src.title").TOUCHES[d.ttouches],
       title = "TACTICAL BOUT",
-      controls = TP.CONTROLS,
       restart = go,
       onFinish = function(b)
         Profile.recordBout(b.winner == side, b.score[side], b.score[3 - side])
         app.toTitle("tactical")
       end,
-    })
-    setmetatable(p, TP)
-    p:init(side, level, style, live)
-    app.set(p)
+    }))
   end
   go()
 end
 
-function TP:init(side, level, style, live)
+-- Put the bout in the mode chosen (self.tactical), from wherever it is.
+-- The tactical match is kept when switching away, so the CPU still
+-- remembers your habits when you come back to it.
+function TP:applyMode()
   local b = self.bout
-  self.side = side
-  local sides = {}
-  sides[side] = { human = true, ratings = Tac.playerRatings(Profile.current()), live = live[side] }
-  sides[3 - side] = {
-    human = false, ratings = Tac.cpuRatings(level, style), brain = Tac.brain(level, style),
-    style = style, level = level, live = live[3 - side],
-  }
-  self.match = Tac.match(b, sides, function(i, menu, info, done) self:openMenu(menu, info, done) end)
+  local side, foe = self.side, 3 - self.side
+  self.menu2 = nil
+  self.ai:idle()
+  if self.tactical then
+    self.ai.S = self.footS
+    if not self.tac then
+      local sides = {}
+      sides[side] = { human = true, ratings = Tac.playerRatings(Profile.current()), live = Tac.footworkOnly(self.human) }
+      sides[foe] = {
+        human = false, ratings = Tac.cpuRatings(self.level, self.style), brain = Tac.brain(self.level, self.style),
+        style = self.style, level = self.level, live = Tac.footworkOnly(self.ai),
+      }
+      self.tac = Tac.match(b, sides, function(_, menu, info, done) self:openMenu(menu, info, done) end)
+      self.tacJudge = b.o.judge
+      for i = 1, 2 do b.f[i].ctl = sides[i].live end
+    else
+      -- back from arcade: whatever it was doing when we left is dropped
+      b.o.judge = self.tacJudge
+      self.tac.waiting = false
+      self.tac:toLive()
+    end
+    self.match = self.tac
+  else
+    self.match = nil
+    b.o.judge = nil
+    self.ai.S = self.fullS
+    b.f[side].ctl = self.human
+    b.f[foe].ctl = self.ai
+  end
+  self.opts.controls = self.tactical and TP.CONTROLS or nil
 end
 
 ---------------------------------------------------------------------------
@@ -100,6 +150,8 @@ function TP:update(dt)
   if self.help or self.paused or input.pressed.start or input.pressed.select then
     return Play.update(self, dt)
   end
+  if self.tactical ~= (self.match ~= nil) then self:applyMode() end
+  if not self.match then return Play.update(self, dt) end
   local b, m = self.bout, self.match
   if self.menu2 then
     self:updateMenu()
@@ -288,6 +340,7 @@ end
 
 function TP:drawExtra()
   local b, m = self.bout, self.match
+  if not m then return end
   if (b.phase == "engarde" or b.phase == "intro") and b.score[1] + b.score[2] == 0 and b.period == 1 then
     self:drawCard()
   end

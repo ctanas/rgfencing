@@ -8,9 +8,7 @@ local input = require("src.input")
 local audio = require("src.audio")
 local settings = require("src.settings")
 local Bout = require("src.bout")
-local Play = require("src.play")
 local AI = require("src.ai")
-local Ctl = require("src.controller")
 local Menu = require("src.menu")
 local Names = require("src.names")
 local Help = require("src.help")
@@ -49,18 +47,16 @@ end
 function T.startQuick(app)
   local d = settings.data
   local touches = T.TOUCHES[d.qtouches]
+  local tactical = false     -- until switched in the pause menu
   local function go()
     local style = d.qstyle == 1 and AI.STYLE_ORDER[love.math.random(1, #AI.STYLE_ORDER)] or AI.STYLE_ORDER[d.qstyle - 1]
-    local ai = AI.new(d.qlevel, style)
     -- now and then a familiar face
     local nm = (love.math.random() < 0.15) and Names.RIVALS[love.math.random(1, #Names.RIVALS)] or Names.random()
-    local me, nation = Profile.fencer()
     local side = d.side
-    local player = { name = me, nation = nation, human = true, ctl = Ctl.human(input) }
-    local opp = { name = nm.last, nation = nm.nation, ctl = ai, spd = ai.spd }
-    app.set(Play.new(app, {
-      left = (side == 1) and player or opp,
-      right = (side == 1) and opp or player,
+    app.set(require("src.tactical").versus(app, {
+      opp = { name = nm.last, nation = nm.nation }, level = d.qlevel, style = style,
+      tactical = tactical,
+      onMode = function(v) tactical = v end,
       touches = touches,
       title = "QUICK BOUT",
       restart = go,

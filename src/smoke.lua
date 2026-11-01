@@ -1,6 +1,7 @@
 -- UI smoke test: drives the real app with scripted button presses through
--- every screen, a quick bout, the pause menu, a career pool bout and a
--- drill. Any Lua error fails the run.
+-- every screen, a quick bout, the pause menu (and its arcade/tactical
+-- switch, both ways), a tactical career pool bout and a drill. Any Lua
+-- error fails the run.
 --
 --   love . --smoke
 
@@ -20,18 +21,27 @@ local SCRIPT = {
   { press = "a" }, { wait = 150 }, { press = "a" }, { wait = 60 }, { press = "down" }, { press = "a" }, { wait = 150 },
   { press = "a" }, { wait = 60 }, { press = "a" }, { wait = 150 }, { press = "b" }, { wait = 30 }, { press = "a" },
   { wait = 200 }, { press = "a" }, { wait = 100 },
-  { press = "start" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 10 },
+  { "tactical bout switched to arcade" }, { press = "start" }, { press = "down" }, { press = "a" }, { press = "start" },
+  { wait = 60 }, { hold = "right", frames = 30 }, { press = "a" }, { wait = 40 }, { press = "x" }, { wait = 60 },
+  { "and back to tactical" }, { press = "start" }, { press = "down" }, { press = "a" }, { press = "start" },
+  { wait = 60 }, { hold = "right", frames = 30 }, { press = "a" }, { wait = 10 }, { press = "a" }, { wait = 150 },
+  { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 10 },
   { press = "b" }, { wait = 5 }, { press = "down" }, { press = "a" }, { wait = 10 },
   { "quick bout" }, { press = "a" }, { wait = 5 }, { press = "right" }, { press = "down" }, { press = "down" },
   { press = "down" }, { press = "a" }, { wait = 150 },
   { hold = "right", frames = 50 }, { press = "a" }, { wait = 40 }, { hold = "up", frames = 2 },
   { press = "b" }, { wait = 30 }, { press = "x" }, { press = "y" }, { wait = 60 }, { press = "r1" }, { press = "l1" },
   { wait = 300 },
-  { "pause" }, { press = "start" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 10 },
+  { "quick bout switched to tactical" }, { press = "start" }, { press = "down" }, { press = "right" }, { press = "start" },
+  { wait = 60 }, { hold = "right", frames = 30 }, { press = "a" }, { wait = 10 }, { press = "a" }, { wait = 150 },
+  { "pause" }, { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 10 },
   { press = "b" }, { press = "down" }, { press = "a" }, { wait = 10 },
   { "career" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
-  { press = "a" }, { wait = 5 }, { press = "a" }, { wait = 200 }, { hold = "right", frames = 40 }, { wait = 200 },
-  { press = "start" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
+  { press = "a" }, { wait = 5 },
+  { "career: tactical mode" }, { press = "down" }, { press = "a" }, { wait = 5 },
+  { press = "a" }, { wait = 200 }, { hold = "right", frames = 40 }, { press = "a" }, { wait = 10 }, { press = "a" },
+  { wait = 200 },
+  { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { press = "b" }, { wait = 5 }, { press = "b" }, { wait = 5 },
   { "training" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 }, { press = "a" },
@@ -58,15 +68,17 @@ local SCRIPT = {
   { press = "up" },
   { press = "a" }, { wait = 5 }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 150 },
   { hold = "left", frames = 50 }, { press = "a" }, { wait = 200 },
-  { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 10 },
+  { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" },
+  { wait = 10 },
   { "drill from the right" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 }, { press = "a" },
   { wait = 300 }, { press = "b" }, { wait = 100 },
   { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { press = "b" }, { wait = 5 },
+  -- the second profile's career: a new competition, so the mode picker (ARCADE)
   { "career bout from the right" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 }, { press = "a" }, { wait = 5 },
-  { press = "a" }, { wait = 200 }, { hold = "left", frames = 40 }, { wait = 150 },
-  { press = "start" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
+  { press = "a" }, { wait = 5 }, { press = "a" }, { wait = 200 }, { hold = "left", frames = 40 }, { wait = 150 },
+  { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { press = "b" }, { wait = 5 }, { press = "b" }, { wait = 5 },
   { "done" },
 }

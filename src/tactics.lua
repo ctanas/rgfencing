@@ -287,7 +287,8 @@ end
 Tac.RATINGS = { "atk", "def", "tim", "ftw" }
 Tac.RATING_SHORT = { atk = "ATK", def = "DEF", tim = "TIM", ftw = "FTW" }
 
-local LEVEL_BASE = { 3.5, 5, 6.5, 8 }
+-- By CPU level, NOVICE to LEGEND. Career opponents fall between levels.
+local LEVEL_BASE = { 3.5, 5, 6.5, 8, 9 }
 local STYLE_MOD = {
   balanced = {},
   attacker = { atk = 1, def = -0.5, tim = -0.5, ftw = 0.5 },
@@ -296,8 +297,16 @@ local STYLE_MOD = {
   flecheur = { atk = 0.5, def = -0.5, ftw = 1 },
 }
 
+-- A value from a by-level table, between whole levels; nil level: dflt.
+local function byLevel(t, level, dflt)
+  if not level then return dflt end
+  local l = clamp(level, 1, #t)
+  local i = min(floor(l), #t - 1)
+  return t[i] + (t[i + 1] - t[i]) * (l - i)
+end
+
 function Tac.cpuRatings(level, style)
-  local base = LEVEL_BASE[level] or 5
+  local base = byLevel(LEVEL_BASE, level, 5)
   local m = STYLE_MOD[style] or {}
   local r = {}
   for _, k in ipairs(Tac.RATINGS) do r[k] = clamp(base + (m[k] or 0), 1, 9.5) end
@@ -353,8 +362,8 @@ local PREF = {
 }
 -- How well each level reads the opponent's habits, and how sharply it
 -- picks the best answer it sees (lower = sharper).
-local READ = { 0.05, 0.25, 0.5, 0.8 }
-local TEMP = { 0.45, 0.30, 0.20, 0.13 }
+local READ = { 0.05, 0.25, 0.5, 0.8, 0.9 }
+local TEMP = { 0.45, 0.30, 0.20, 0.13, 0.10 }
 -- How keen each style is to attack
 Tac.AGGR = { attacker = 1.4, flecheur = 1.1, balanced = 1.0, counter = 0.6, defender = 0.5 }
 
@@ -363,7 +372,7 @@ Brain.__index = Brain
 
 function Tac.brain(level, style)
   return setmetatable({
-    level = level, style = style, read = READ[level] or 0.25, temp = TEMP[level] or 0.3,
+    level = level, style = style, read = byLevel(READ, level, 0.25), temp = byLevel(TEMP, level, 0.3),
     pref = PREF[style] or {}, seen = {},
   }, Brain)
 end

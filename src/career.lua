@@ -2,17 +2,19 @@
 -- event: two pools of six (bouts to 5, FIE bout order), a ranking by
 -- victories/matches, indicator (touches scored - received) and touches
 -- scored, then a direct-elimination table of 8 (bouts to 10 or 15).
--- You fence your own bouts; the others are simulated from the fencers'
--- ratings. A medal (top 3) unlocks the next competition.
+-- You fence your own bouts, in arcade or tactical mode (chosen when the
+-- competition starts, and switchable from the pause menu of any bout);
+-- the others are simulated from the fencers' ratings. A medal (top 3)
+-- unlocks the next competition. The national championships are fenced
+-- between fencers of your own nation.
 
 local core = require("src.core")
 local gfx = require("src.gfx")
 local input = require("src.input")
 local audio = require("src.audio")
 local settings = require("src.settings")
-local Play = require("src.play")
+local TP = require("src.tactical")
 local AI = require("src.ai")
-local Ctl = require("src.controller")
 local Menu = require("src.menu")
 local Names = require("src.names")
 local Profile = require("src.profile")
@@ -28,7 +30,7 @@ local CA = {}
 CA.EVENTS = {
   { name = "CLUB OPEN", lo = 1.0, hi = 1.8, de = 10 },
   { name = "REGIONAL CIRCUIT", lo = 1.4, hi = 2.4, de = 10 },
-  { name = "NATIONAL CHAMPIONSHIPS", lo = 1.9, hi = 2.9, de = 15 },
+  { name = "NATIONAL CHAMPIONSHIPS", lo = 1.9, hi = 2.9, de = 15, national = true },
   { name = "SATELLITE CUP", lo = 2.4, hi = 3.4, de = 15 },
   { name = "WORLD CUP", lo = 2.9, hi = 3.9, de = 15 },
   { name = "WORLD CHAMPIONSHIPS", lo = 3.3, hi = 4.4, de = 15 },
@@ -63,19 +65,24 @@ local function rnd() return love.math.random() end
 -- Building and simulating an event
 ---------------------------------------------------------------------------
 
-function CA.newEvent(idx)
+-- mode: "arcade" or "tactical", for the player's bouts.
+function CA.newEvent(idx, mode)
   local E = CA.EVENTS[idx]
-  local used = {}
   local me, nation = Profile.fencer()
+  local used = { [me] = true }
+  -- the national championships: only fencers of the player's nation
+  local home = E.national and Names.has(nation) and nation
   local field = { { last = me, nation = nation, rating = 0, you = true } }
   -- the recurring rivals, seeded at the top of the field
   for _, r in ipairs(Names.RIVALS) do
-    used[r.last] = true
-    field[#field + 1] = { last = r.last, nation = r.nation, style = r.style,
-      rating = E.hi + 0.1 * rnd() }
+    if not home or r.nation == home then
+      used[r.last] = true
+      field[#field + 1] = { last = r.last, nation = r.nation, style = r.style,
+        rating = E.hi + 0.1 * rnd() }
+    end
   end
   for _ = #field, 11 do
-    local n = Names.random(nil, nil, used)
+    local n = home and Names.from(home, used) or Names.random(nil, nil, used)
     n.rating = E.lo + (E.hi - E.lo) * rnd()
     n.style = AI.STYLE_ORDER[love.math.random(1, #AI.STYLE_ORDER)]
     field[#field + 1] = n
@@ -91,7 +98,7 @@ function CA.newEvent(idx)
   table.insert(pools[1], love.math.random(1, 6), 1)
   save.ev = {
     idx = idx, stage = "pool", field = field, pools = pools,
-    res = {}, pos = { 1, 1 }, de = nil, place = nil,
+    res = {}, pos = { 1, 1 }, de = nil, place = nil, mode = mode or "arcade",
   }
   CA.simPoolsUntilPlayer()
   CA.write()
@@ -290,21 +297,32 @@ end
 -- Fencing a bout
 ---------------------------------------------------------------------------
 
+-- The mode of the event's bouts: "arcade" (events from before the choice
+-- existed) or "tactical".
+function CA.mode()
+  return save.ev and save.ev.mode or "arcade"
+end
+
+local function modeName(mode)
+  return TP.MODE_NAME[mode == "tactical"]
+end
+
 function CA.fence(app, oppId, touches, onDone)
   local ev = save.ev
   local o = ev.field[oppId]
-  local ai = AI.new(o.rating, o.style)
   local E = CA.EVENTS[ev.idx]
-  local title = E.name
-  local me, nation = Profile.fencer()
   local side = settings.data.side
-  local player = { name = me, nation = nation, human = true, ctl = Ctl.human(input) }
-  local opp = { name = o.last, nation = o.nation, ctl = ai, spd = ai.spd }
-  app.set(Play.new(app, {
-    left = (side == 1) and player or opp,
-    right = (side == 1) and opp or player,
+  app.set(TP.versus(app, {
+    opp = { name = o.last, nation = o.nation }, level = o.rating, style = o.style,
+    tactical = CA.mode() == "tactical",
+    -- a switch in the pause menu holds for the rest of the competition
+    onMode = function(tactical)
+      ev.mode = tactical and "tactical" or "arcade"
+      save.mode = ev.mode
+      CA.write()
+    end,
     touches = touches,
-    title = title,
+    title = E.name,
     quitLabel = "LEAVE (FENCE LATER)",
     onQuit = function() CA.eventScreen(app) end,
     onFinish = function(b)
@@ -463,6 +481,9 @@ function CA.eventScreen(app)
   local ev = save.ev
   local E = CA.EVENTS[ev.idx]
   local s = {}
+  local function drawMode()
+    gfx.text(I.f("MODE: %s", I.tr(modeName(CA.mode()))), 8, H - 12, C.dim)
+  end
   function s:update()
     if input.pressed.b then
       audio.play("back", 0.5)
@@ -531,10 +552,12 @@ function CA.eventScreen(app)
       else
         gfx.text("YOUR POOL IS DONE", 8, 118, C.text)
       end
+      drawMode()
       gfx.hints({ { "A", opp and "FENCE" or "RANKING" }, { "B", "CAREER" } }, W - 6, H - 12, "right")
     elseif ev.stage == "ranking" then
       frame(E.name, "RANKING AFTER THE POOLS · TOP 8 GO ON")
       drawRanking()
+      drawMode()
       gfx.hints({ { "A", ev.place and "RESULT" or "TABLE OF 8" }, { "B", "CAREER" } }, W - 6, H - 12, "right")
     elseif ev.stage == "de" then
       frame(E.name, I.f("DIRECT ELIMINATION · BOUTS TO %d", E.de))
@@ -545,6 +568,7 @@ function CA.eventScreen(app)
         gfx.text(I.f("NEXT: %s %s", o.last, o.nation), 8, 125, C.text)
         gfx.text(I.f("STYLE: %s", I.tr(AI.STYLE_NAME[o.style])), 8, 135, C.dim)
       end
+      drawMode()
       gfx.hints({ { "A", "FENCE" }, { "B", "CAREER" } }, W - 6, H - 12, "right")
     elseif ev.stage == "done" then
       frame(E.name, "FINAL RESULT")
@@ -568,6 +592,49 @@ function CA.eventScreen(app)
   app.set(s)
 end
 
+-- Before a competition starts: arcade or tactical.
+CA.MODE_INFO = {
+  arcade = "Fence every action yourself, in real time: lunges, parries, feints and flèches on the buttons.",
+  tactical = "Move live with ←/→, L1 and R1. When someone attacks, the bout stops and you choose the blade work from a menu.",
+}
+
+function CA.chooseMode(app, idx)
+  local E = CA.EVENTS[idx]
+  local function start(mode)
+    save.mode = mode
+    CA.newEvent(idx, mode)
+    CA.eventScreen(app)
+  end
+  local back = function() CA.hub(app) end
+  local m = Menu.new({
+    { label = "ARCADE", action = function() start("arcade") end, mode = "arcade" },
+    { label = "TACTICAL", action = function() start("tactical") end, mode = "tactical" },
+    { label = "BACK", action = back },
+  }, { back = back })
+  if save.mode == "tactical" then m.sel = 2 end
+  local s = {}
+  function s:update() m:update() end
+  function s:draw()
+    frame(E.name, "HOW WILL YOU FENCE?")
+    local x, w = 60, W - 120
+    m:draw(x, 30, w)
+    local mode = m.items[m.sel].mode
+    if mode then
+      gfx.panel(8, 72, W - 16, 38)
+      gfx.para(CA.MODE_INFO[mode], 14, 77, W - 28, C.text, 9)
+    end
+    if E.national then
+      local _, nation = Profile.fencer()
+      if Names.has(nation) then
+        gfx.text(I.f("ONLY FENCERS FROM %s", I.tr(Nations.name(nation))), W / 2, 116, C.dim, "center")
+      end
+    end
+    gfx.text("SWITCH ANY TIME FROM THE PAUSE MENU", W / 2, 128, C.dim, "center")
+    gfx.hints({ { "A", "SELECT" }, { "B", "CAREER" } }, W / 2, H - 14, "center")
+  end
+  app.set(s)
+end
+
 function CA.hub(app)
   if not save then CA.load() end
   if not save then
@@ -578,7 +645,8 @@ function CA.hub(app)
   local items = {}
   if save.ev then
     local E = CA.EVENTS[save.ev.idx]
-    items[#items + 1] = { label = I.f("CONTINUE: %s", I.tr(E.name)), action = function() CA.eventScreen(app) end, hint = "EVENT IN PROGRESS" }
+    items[#items + 1] = { label = I.f("CONTINUE: %s", I.tr(E.name)), action = function() CA.eventScreen(app) end,
+      hint = I.f("EVENT IN PROGRESS · %s", I.tr(modeName(CA.mode()))) }
   end
   for i, E in ipairs(CA.EVENTS) do
     items[#items + 1] = {
@@ -589,7 +657,7 @@ function CA.hub(app)
         return b and I.f("BEST %s", placeName(b)) or ""
       end,
       disabled = function() return save.ev ~= nil or not CA.unlocked(i) end,
-      action = function() CA.newEvent(i); CA.eventScreen(app) end,
+      action = function() CA.chooseMode(app, i) end,
       hint = I.f("DE BOUTS TO %d · OPPONENTS %s TO %s", E.de,
         I.tr(AI.params(E.lo).name), I.tr(AI.params(E.hi).name)),
     }
@@ -623,6 +691,9 @@ function CA.shot(app, mode, args)
   core.testMode = true
   if mode == "career" then
     CA.hub(app)
+    return
+  elseif mode == "choose" then
+    CA.chooseMode(app, 3)
     return
   end
   CA.newEvent(3)
