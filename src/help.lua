@@ -76,6 +76,11 @@ Help.PAGES = {
     "The choices beat each other like a wheel: the parry stops the direct attack, the disengage and the feint deceive the parry, the counterattack beats the feint, the direct attack and the beat beat the counterattack.",
     "Distance and ratings count too: training drills raise yours.",
   } },
+  { title = "WHEEL BOUT", text = {
+    "Press A to move first, or wait for them. The bout stops and you both pick one of five actions: theirs is already chosen.",
+    "DIRECT beats FEINT and BEAT. FEINT beats PARRY and BEAT. PARRY beats DIRECT and LINE. LINE beats DIRECT and FEINT. BEAT beats LINE and PARRY.",
+    "The same pick: no touch. Distance and ratings don't count.",
+  } },
   { title = "TIPS", text = {
     "Keep just outside their lunge. The distance at the bottom turns yellow, then orange, when a lunge can reach.",
     "The orange arrow shows the line of an incoming attack. A parry in your own guard line lasts longer.",

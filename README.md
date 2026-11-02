@@ -7,9 +7,11 @@ after the first hit, and when both lamps light the referee gives the touch by
 **right of way**, and tells you why. The fencers move with weight and momentum,
 in the spirit of the rotoscoped classics, and each player fences under their
 own profile, name and flag. A **tactical bout** turns each exchange into a
-choice from a menu, and the whole game can be played in **English or Romanian**.
+choice from a menu, a **wheel bout** turns it into a five-way rock-paper-scissors
+played by the rules of foil, and the whole game can be played in **English or
+Romanian**.
 
-![An exchange between two Elite fencers: attack, parry, riposte, and the referee's call](screenshots/bout.gif)
+![RG Fencing in 27 seconds: the title screen; an arcade exchange between two Elite fencers ending in a parry-riposte and the referee's call; a tactical attack chosen from a menu, a feint that deceives the parry; a wheel bout where the CPU moves first and the point in line beats its direct attack; the career's pool sheet and table of 8](screenshots/showcase.gif)
 
 | | |
 |---|---|
@@ -19,9 +21,10 @@ choice from a menu, and the whole game can be played in **English or Romanian**.
 | ![Training: attack the open line](screenshots/drill.png) | ![The salute before the bout](screenshots/salute.png) |
 | ![Your profile](screenshots/profile.png) | ![Typing a name, accents included](screenshots/keyboard.png) |
 | ![Tactical bout: choosing the attack](screenshots/tactical.png) | ![Tactical bout: a feint caught by a counterattack](screenshots/exchange.png) |
-| ![Tactical bout, in Romanian](screenshots/romana.png) | ![Career: arcade or tactical, chosen when a competition starts](screenshots/modes.png) |
+| ![Tactical bout, in Romanian](screenshots/romana.png) | ![Career: arcade, tactical or wheel, chosen when a competition starts](screenshots/modes.png) |
+| ![Wheel bout: the CPU moved first, pick one of five](screenshots/wheel.png) | ![Wheel bout: the point in line beats the direct attack](screenshots/wheelex.png) |
 
-*Screenshots and the clip are rendered by the game itself at 360×240, shown at 720×480 (`./build.sh shots`).*
+*The clips and screenshots are rendered by the game itself at 360×240, shown at 720×480 (`./build.sh shots`).*
 
 ## Install
 
@@ -144,11 +147,12 @@ nationality or delete a profile.
 
 ## Game modes
 
-Every bout against the CPU (quick bout, tactical bout or career) can be fenced
-in **arcade** mode, every action on the buttons, or in **tactical** mode, live
-footwork with the blade work chosen from menus. **Mode** in the pause menu
-switches between them at any point of a bout; the switch takes effect when you
-resume.
+Every bout against the CPU (quick bout, tactical bout, wheel bout or career) can
+be fenced in **arcade** mode, every action on the buttons, in **tactical** mode,
+live footwork with the blade work chosen from menus, or in **wheel** mode, live
+footwork with each exchange a five-way rock-paper-scissors. **Mode** in the
+pause menu switches between them at any point of a bout; the switch takes
+effect when you resume.
 
 ### Quick bout
 
@@ -258,6 +262,44 @@ and referee as a real-time bout, so the lamps, the priority and the referee's
 call are those of the real rules. With **Options → Assists** on, the banner over
 the fencers shows the chance the attack had.
 
+### Wheel bout
+
+**In short.** Each exchange is a rock-paper-scissors with five choices, as in
+rock-paper-scissors-lizard-Spock, and the choices are foil actions. You move
+your fencer freely in real time (←/→, L1/R1). Press A to move first (from 3.1 m
+or closer), or wait for the CPU to: either way the bout freezes and you pick one
+of five actions. The CPU's pick is made the moment the exchange starts, before
+you are asked, so it can't react to yours.
+
+| Action | Beats | Loses to |
+|---|---|---|
+| Direct attack | the feint attack (one tempo lands before two) and the beat attack (an attack into its preparation) | parry-riposte, point in line |
+| Feint attack | the parry-riposte (the feint deceives the parry) and the beat attack (the blade slips round the beat) | direct attack, point in line |
+| Parry-riposte | the direct attack (parry, then riposte) and the point in line (the parry finds the blade in line) | feint attack, beat attack |
+| Point in line | the direct attack (the line has priority) and the feint attack (it runs onto the point) | parry-riposte, beat attack |
+| Beat attack | the point in line (the attacker must beat the line first) and the parry-riposte (the beat knocks the waiting blade aside) | direct attack, feint attack |
+
+The same pick on both sides is no touch: two direct attacks or two feints are
+simultaneous attacks, two parries or two points in line mean nobody attacks,
+and two beats clash. Distance and ratings don't change the outcome; only the
+wheel does. Stronger CPUs notice what you pick often and pick what beats it,
+and the menu shows you what the CPU has picked most so far.
+
+The exchange is then fenced out in slow motion by the same fencers, scoring box
+and referee, so the lamps and the referee's call are the real ones (a parry
+that finds a blade in line is a beat, so the referee calls a beat-attack). The
+banner over the fencers shows both picks and why the winner's beats the other.
+
+**Pe scurt, în română.** Fiecare fază e un „piatră-foarfecă-hârtie" cu cinci
+variante, după regulile floretei. Te miști liber (←/→, L1/R1); apeși A ca să
+acționezi primul (de la cel mult 3,1 m) sau aștepți adversarul. Asaltul se
+oprește și alegi una din cinci acțiuni; adversarul a ales deja. Atacul direct
+bate atacul cu fentă și atacul cu bătaie; atacul cu fentă bate parada-ripostă și
+atacul cu bătaie; parada-ripostă bate atacul direct și brațul în linie; brațul
+în linie bate atacul direct și atacul cu fentă; atacul cu bătaie bate brațul în
+linie și parada-ripostă. Aceeași alegere: fără tușă. Distanța și atributele nu
+contează.
+
 ### Career
 
 Work up a ladder of six competitions. Each is run like a real event: two pools
@@ -267,7 +309,7 @@ your own bouts; the others are simulated from the fencers' ratings. A medal
 (top 3) unlocks the next competition. The career is saved after every bout; you
 can leave a bout from the pause menu and fence it later.
 
-When a competition starts you choose arcade or tactical mode for your bouts.
+When a competition starts you choose arcade, tactical or wheel mode for your bouts.
 A switch in the pause menu holds for the rest of that competition, and the
 event screen shows the current mode. The National Championships are fenced
 only between fencers of your own nationality.
@@ -324,6 +366,8 @@ four in ten parry-ripostes and the rest beat-attacks and counterattacks, which i
 roughly the mix of real top-level foil.
 
 ## Animation
+
+![An exchange between two Elite fencers: attack, parry, riposte, and the referee's call](screenshots/bout.gif)
 
 The fencers are a procedural skeleton, animated to move like people rather than
 cut-outs. Rotoscoped games of the late 1980s were the inspiration: weight,
@@ -417,8 +461,10 @@ backdrop keeps its pixel grain.
 ./build.sh test 10        # headless: AI vs AI, levels and styles, touch statistics
 ./build.sh drills         # headless: a scripted student completes every drill
 ./build.sh tactics 2      # headless: every tactical exchange staged as drawn, then CPU-vs-CPU bouts
+./build.sh wheel 2        # headless: every wheel pairing staged as the wheel says, then CPU-vs-CPU bouts
 ./build.sh smoke          # drives every screen with scripted input (opens a window; "smoke ro" in Romanian)
-./build.sh shots          # renders the README screenshots and clip (clip needs Python + Pillow)
+./build.sh shots          # renders the README screenshots and clips (clips need Python + Pillow)
+./build.sh showcase       # just the showcase GIF at the top (src/reel.lua; also needs ffmpeg)
 ./build.sh run            # play on this PC
 ```
 
@@ -446,7 +492,9 @@ The muxapp's LÖVE runtime comes from [2048 Plus](https://github.com/saitamasahi
 | `src/profile.lua`, `src/profiles_ui.lua` | Profiles; the name keyboard, nation picker and profile screen |
 | `src/nations.lua` | 112 nations and their pixel flags |
 | `src/tactics.lua` | Tactical bout: the actions, the odds, the CPU's choices and the staging of each outcome |
-| `src/tactical.lua` | Bouts against the CPU, arcade or tactical and switchable mid-bout; the tactical menus, the banner, the ratings card |
+| `src/wheel.lua` | Wheel bout: the five actions, the CPU's blind pick and the staging of each pairing |
+| `src/reel.lua` | The README's showcase: the game's own scenes driven by scripted presses, captured frame by frame |
+| `src/tactical.lua` | Bouts against the CPU, arcade, tactical or wheel and switchable mid-bout; the menus, the banner, the ratings card |
 | `src/i18n.lua`, `src/lang_ro.lua` | Languages; the Romanian table is generated by `tools/lang_ro.py` |
 | `tools/font360.py` | Generates the 7×10 font (`src/font360.lua`) |
 

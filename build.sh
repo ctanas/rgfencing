@@ -9,9 +9,12 @@
 #   ./build.sh drills      headless check that every training drill can be completed
 #   ./build.sh tactics [N] headless check of the tactical bout: every exchange staged
 #                          as drawn, then N CPU-vs-CPU bouts per style pairing
+#   ./build.sh wheel [N]   headless check of the wheel bout: every pairing staged as
+#                          the wheel says, then N CPU-vs-CPU bouts per style pairing
 #   ./build.sh smoke       drive every screen with scripted input (opens a window
 #                          briefly; add "ro" to run it in Romanian)
 #   ./build.sh shots       render the README screenshots into screenshots/
+#   ./build.sh showcase    render just the README's showcase GIF (needs ffmpeg)
 #   ./build.sh run [args]  run the game on this PC (needs LÖVE 11.x)
 #
 # The muxapp bundles an aarch64 LÖVE 11.5 runtime (bin/love + bin/libs.aarch64),
@@ -128,6 +131,36 @@ find_love() {
     fi
 }
 
+# Where LÖVE keeps the game's save files, and so the rendered shots.
+save_dir() {
+    case "$(uname)" in
+        Darwin) echo "$HOME/Library/Application Support/LOVE/rgfencing" ;;
+        *) echo "${XDG_DATA_HOME:-$HOME/.local/share}/love/rgfencing" ;;
+    esac
+}
+
+# The showcase GIF at the top of the README: the reel of src/reel.lua,
+# played and captured by the game (30 fps at 360x240), then put together by
+# ffmpeg, which stores only the pixels that change from one frame to the
+# next. Needs ffmpeg, and Python 3 with Pillow.
+build_showcase() {
+    local love dir
+    love="$(find_love)"
+    command -v ffmpeg >/dev/null 2>&1 || { echo "The showcase GIF needs ffmpeg: skipped" >&2; return 0; }
+    (cd "$ROOT" && "$love" . --shot showcase --mode reel --res 2 >/dev/null)
+    dir="$(save_dir)"
+    # frames with few colours are saved as palette PNGs: give ffmpeg one format
+    python3 - "$dir" <<'PY' | ffmpeg -v error -y -f rawvideo -pix_fmt rgb24 -s 360x240 -framerate 30 -i - \
+        -vf "scale=iw*2:ih*2:flags=neighbor,split[a][b];[a]palettegen=max_colors=256:stats_mode=full:reserve_transparent=1[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" \
+        -loop 0 "$ROOT/screenshots/showcase.gif"
+import glob, sys
+from PIL import Image
+for f in sorted(glob.glob(sys.argv[1] + "/showcase_[0-9][0-9][0-9][0-9].png")):
+    sys.stdout.buffer.write(Image.open(f).convert("RGB").tobytes())
+PY
+    echo "Built screenshots/showcase.gif ($(( $(wc -c < "$ROOT/screenshots/showcase.gif") / 1024 )) KB)"
+}
+
 # Screenshots for the README, rendered by the game itself at 720x480.
 build_shots() {
     local love
@@ -153,16 +186,15 @@ build_shots() {
     run_shot exchange --mode tactical --exchange feint,counter,counter --time 0.9
     run_shot romana --mode tactical --menu defend --sel 3 --time 0.3 --lang 2
     run_shot modes --mode choose --time 0.5
+    run_shot wheel --mode wheel --menu wheel2 --sel 4 --time 0.3
+    run_shot wheelex --mode wheel --exchange wline,wdirect --time 0.9
     run_shot bout --mode film --act bout --every 2 --start 1.2 --dur 7 --seed 21
     for r in 1 2 3; do
         (cd "$ROOT" && "$love" . --shot "res$r" --res "$r" --mode pose --pose lunge,parry --gap 2.15 --time 0.6 >/dev/null)
     done
     local dir
-    case "$(uname)" in
-        Darwin) dir="$HOME/Library/Application Support/LOVE/rgfencing" ;;
-        *) dir="${XDG_DATA_HOME:-$HOME/.local/share}/love/rgfencing" ;;
-    esac
-    for f in title lunge decision lockout salute pool bracket drill training quick profile keyboard tactical exchange romana modes; do
+    dir="$(save_dir)"
+    for f in title lunge decision lockout salute pool bracket drill training quick profile keyboard tactical exchange romana modes wheel wheelex; do
         cp "$dir/$f.png" "$ROOT/screenshots/$f.png"
     done
     # the animated bout clip and the resolution comparison (needs Python 3 with Pillow)
@@ -192,12 +224,14 @@ case "${1:-all}" in
     test) (cd "$ROOT" && "$(find_love)" . --autotest "${2:-10}") ;;
     drills) (cd "$ROOT" && "$(find_love)" . --autotest drills) ;;
     tactics) (cd "$ROOT" && "$(find_love)" . --autotest tactics --n "${2:-2}") ;;
+    wheel) (cd "$ROOT" && "$(find_love)" . --autotest wheel --n "${2:-2}") ;;
     smoke) (cd "$ROOT" && "$(find_love)" . --smoke --windowed --lang "$([ "${2:-}" = ro ] && echo 2 || echo 1)") ;;
-    shots) build_shots ;;
+    shots) build_shots; build_showcase ;;
+    showcase) build_showcase ;;
     run)
         shift
         LOVE_BIN="$(find_love)"
         cd "$ROOT" && "$LOVE_BIN" . "$@"
         ;;
-    *) echo "Usage: ./build.sh [all|muos|portmaster|love|test|drills|tactics|smoke|shots|run]" >&2; exit 1 ;;
+    *) echo "Usage: ./build.sh [all|muos|portmaster|love|test|drills|tactics|wheel|smoke|shots|showcase|run]" >&2; exit 1 ;;
 esac

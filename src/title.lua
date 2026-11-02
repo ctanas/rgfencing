@@ -47,7 +47,7 @@ end
 function T.startQuick(app)
   local d = settings.data
   local touches = T.TOUCHES[d.qtouches]
-  local tactical = false     -- until switched in the pause menu
+  local mode = "arcade"     -- until switched in the pause menu
   local function go()
     local style = d.qstyle == 1 and AI.STYLE_ORDER[love.math.random(1, #AI.STYLE_ORDER)] or AI.STYLE_ORDER[d.qstyle - 1]
     -- now and then a familiar face
@@ -55,8 +55,8 @@ function T.startQuick(app)
     local side = d.side
     app.set(require("src.tactical").versus(app, {
       opp = { name = nm.last, nation = nm.nation }, level = d.qlevel, style = style,
-      tactical = tactical,
-      onMode = function(v) tactical = v end,
+      mode = mode,
+      onMode = function(v) mode = v end,
       touches = touches,
       title = "QUICK BOUT",
       restart = go,
@@ -91,6 +91,7 @@ function T.new(app, sub)
   t.main = Menu.new({
     { label = "QUICK BOUT", action = function() t.mode = "quick" end },
     { label = "TACTICAL BOUT", action = function() t.mode = "tactical" end },
+    { label = "WHEEL BOUT", action = function() t.mode = "wheel" end },
     { label = "CAREER", action = function() require("src.career").hub(app) end },
     { label = "TRAINING", action = function() require("src.training").menu(app) end },
     { label = "PROFILE", action = function() require("src.profiles_ui").screen(app) end },
@@ -99,7 +100,7 @@ function T.new(app, sub)
     end },
     { label = "OPTIONS", action = function() t.mode = "options" end },
     { label = "QUIT", action = function() love.event.quit() end },
-  }, { rowH = 11 })
+  }, { rowH = 10 })
 
   local function cycle(key, n, dir)
     return function() d[key] = (d[key] - 1 + dir) % n + 1 end
@@ -118,19 +119,25 @@ function T.new(app, sub)
     { label = "BACK", action = function() t.mode = "main" end },
   }, { back = function() t.mode = "main" end })
 
-  t.tactical = Menu.new({
-    { label = "OPPONENT", value = function() return AI.LEVELS[d.tlevel].name end,
-      left = cycle("tlevel", 4, -1), right = cycle("tlevel", 4, 1) },
-    { label = "STYLE", value = function() return styleName(d.tstyle) end,
-      left = cycle("tstyle", 6, -1), right = cycle("tstyle", 6, 1) },
-    { label = "TOUCHES", value = function() return tostring(T.TOUCHES[d.ttouches]) end,
-      left = cycle("ttouches", 3, -1), right = cycle("ttouches", 3, 1) },
-    { label = "EN GARDE !", action = function()
-      settings.save()
-      require("src.tactical").start(app)
-    end },
-    { label = "BACK", action = function() t.mode = "main" end },
-  }, { back = function() t.mode = "main" end })
+  -- The tactical and wheel bouts: the same setup, each with its own
+  -- settings (tlevel, tstyle, ttouches / wlevel...).
+  local function setup(mode, k)
+    return Menu.new({
+      { label = "OPPONENT", value = function() return AI.LEVELS[d[k .. "level"]].name end,
+        left = cycle(k .. "level", 4, -1), right = cycle(k .. "level", 4, 1) },
+      { label = "STYLE", value = function() return styleName(d[k .. "style"]) end,
+        left = cycle(k .. "style", 6, -1), right = cycle(k .. "style", 6, 1) },
+      { label = "TOUCHES", value = function() return tostring(T.TOUCHES[d[k .. "touches"]]) end,
+        left = cycle(k .. "touches", 3, -1), right = cycle(k .. "touches", 3, 1) },
+      { label = "EN GARDE !", action = function()
+        settings.save()
+        require("src.tactical").start(app, mode)
+      end },
+      { label = "BACK", action = function() t.mode = "main" end },
+    }, { back = function() t.mode = "main" end })
+  end
+  t.tactical = setup("tactical", "t")
+  t.wheel = setup("wheel", "w")
 
   local function toggle(key, after)
     return function()
@@ -167,6 +174,7 @@ function T.new(app, sub)
   t.mode = sub or "main"
   if sub == "quick" then t.main.sel = 1 end
   if sub == "tactical" then t.main.sel = 2 end
+  if sub == "wheel" then t.main.sel = 3 end
   return t
 end
 
@@ -211,7 +219,7 @@ function T:draw()
   local w = self.mode == "main" and 104 or 176
   local x, y = math.floor((W - w) / 2), self.mode == "main" and 54 or 43
   local title = (self.mode == "quick" and "QUICK BOUT") or (self.mode == "tactical" and "TACTICAL BOUT")
-    or (self.mode == "options" and "OPTIONS") or nil
+    or (self.mode == "wheel" and "WHEEL BOUT") or (self.mode == "options" and "OPTIONS") or nil
   if title then
     gfx.panel(x - 4, y - 2, w + 8, rows * m.rowH + 16)
     gfx.text(title, W / 2, y + 1, C.yellow, "center")
@@ -238,6 +246,13 @@ function T:draw()
       local Tac = require("src.tactics")
       info = I.f("YOU: %s", Tac.ratingText(Tac.playerRatings(Profile.current())))
     end
+  elseif self.mode == "wheel" then
+    local d = settings.data
+    if m.sel == 1 then info = T.LEVEL_INFO[d.wlevel]
+    elseif m.sel == 2 then info = T.STYLE_INFO[d.wstyle]
+    elseif m.sel == 3 then info = "MOVE LIVE, PICK EACH EXCHANGE ON THE WHEEL"
+    elseif m.sel == 4 then info = "FIVE ACTIONS: EACH BEATS TWO, LOSES TO TWO"
+    end
   elseif self.mode == "options" then
     info = OPT_INFO[m.sel]
   end
@@ -259,7 +274,7 @@ function T:draw()
 end
 
 function T:shot(mode)
-  if mode == "options" or mode == "quick" or mode == "tactical" then self.mode = mode end
+  if mode == "options" or mode == "quick" or mode == "tactical" or mode == "wheel" then self.mode = mode end
 end
 
 return T

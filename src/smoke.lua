@@ -1,7 +1,7 @@
 -- UI smoke test: drives the real app with scripted button presses through
--- every screen, a quick bout, the pause menu (and its arcade/tactical
--- switch, both ways), a tactical career pool bout and a drill. Any Lua
--- error fails the run.
+-- every screen, a quick bout, the pause menu (and its mode switch, between
+-- arcade, tactical and wheel), a tactical bout, a wheel bout, a tactical
+-- and a wheel career pool bout and a drill. Any Lua error fails the run.
 --
 --   love . --smoke
 
@@ -21,7 +21,7 @@ local SCRIPT = {
   { press = "a" }, { wait = 150 }, { press = "a" }, { wait = 60 }, { press = "down" }, { press = "a" }, { wait = 150 },
   { press = "a" }, { wait = 60 }, { press = "a" }, { wait = 150 }, { press = "b" }, { wait = 30 }, { press = "a" },
   { wait = 200 }, { press = "a" }, { wait = 100 },
-  { "tactical bout switched to arcade" }, { press = "start" }, { press = "down" }, { press = "a" }, { press = "start" },
+  { "tactical bout switched to arcade" }, { press = "start" }, { press = "down" }, { press = "left" }, { press = "start" },
   { wait = 60 }, { hold = "right", frames = 30 }, { press = "a" }, { wait = 40 }, { press = "x" }, { wait = 60 },
   { "and back to tactical" }, { press = "start" }, { press = "down" }, { press = "a" }, { press = "start" },
   { wait = 60 }, { hold = "right", frames = 30 }, { press = "a" }, { wait = 10 }, { press = "a" }, { wait = 150 },
@@ -36,19 +36,33 @@ local SCRIPT = {
   { wait = 60 }, { hold = "right", frames = 30 }, { press = "a" }, { wait = 10 }, { press = "a" }, { wait = 150 },
   { "pause" }, { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 10 },
   { press = "b" }, { press = "down" }, { press = "a" }, { wait = 10 },
-  { "career" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
+  { "wheel bout" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 }, { press = "down" },
+  { press = "down" }, { press = "down" }, { press = "a" }, { wait = 240 },
+  { hold = "right", frames = 40 }, { press = "a" }, { wait = 10 }, { press = "down" }, { press = "right" },
+  { press = "a" }, { wait = 200 }, { press = "a" }, { wait = 60 }, { press = "a" }, { wait = 10 }, { press = "a" },
+  { wait = 200 }, { press = "a" }, { wait = 10 }, { press = "a" }, { wait = 200 },
+  { "wheel bout switched to arcade" }, { press = "start" }, { press = "down" }, { press = "right" }, { press = "start" },
+  { wait = 60 }, { hold = "right", frames = 30 }, { press = "a" }, { wait = 60 },
+  { "and back to the wheel" }, { press = "start" }, { press = "down" }, { press = "left" }, { press = "start" },
+  { wait = 60 }, { hold = "right", frames = 30 }, { press = "a" }, { wait = 10 }, { press = "b" }, { wait = 10 },
+  { press = "a" }, { wait = 10 }, { press = "a" }, { wait = 150 },
+  { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 10 },
+  { press = "b" }, { wait = 5 }, { press = "down" }, { press = "a" }, { wait = 10 },
+  { "career" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { press = "a" }, { wait = 5 },
   { "career: tactical mode" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { press = "a" }, { wait = 200 }, { hold = "right", frames = 40 }, { press = "a" }, { wait = 10 }, { press = "a" },
   { wait = 200 },
   { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { press = "b" }, { wait = 5 }, { press = "b" }, { wait = 5 },
-  { "training" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
+  { "training" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" },
+  { wait = 5 },
   { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 }, { press = "a" },
   { wait = 400 }, { press = "b" }, { wait = 200 },
   { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { press = "b" }, { wait = 5 },
-  { "profile" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
+  { "profile" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" },
+  { press = "a" }, { wait = 5 },
   { press = "a" }, { wait = 5 }, { press = "a" }, { press = "a" }, { press = "start" }, { wait = 5 },
   { press = "up" }, { press = "a" }, { wait = 5 },
   { press = "a" }, { wait = 5 }, { press = "a" }, { wait = 5 },
@@ -57,27 +71,30 @@ local SCRIPT = {
   { press = "a" }, { wait = 5 },
   { press = "b" }, { wait = 5 },
   { "how to play" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" },
-  { press = "a" }, { wait = 5 }, { press = "right" },
+  { press = "down" }, { press = "a" }, { wait = 5 }, { press = "right" },
   { press = "right" }, { press = "right" }, { press = "right" }, { press = "right" }, { press = "right" },
   { press = "b" }, { wait = 5 },
   { "options" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" },
-  { press = "down" }, { press = "a" }, { wait = 5 }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "right" },
+  { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "right" },
   { press = "down" }, { press = "right" }, { wait = 5 },
   { press = "b" }, { wait = 10 },
   { "quick bout from the right" }, { press = "up" }, { press = "up" }, { press = "up" }, { press = "up" }, { press = "up" },
-  { press = "up" },
+  { press = "up" }, { press = "up" },
   { press = "a" }, { wait = 5 }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 150 },
   { hold = "left", frames = 50 }, { press = "a" }, { wait = 200 },
   { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" },
   { wait = 10 },
-  { "drill from the right" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
+  { "drill from the right" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" },
+  { wait = 5 },
   { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 }, { press = "a" },
   { wait = 300 }, { press = "b" }, { wait = 100 },
   { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { press = "b" }, { wait = 5 },
-  -- the second profile's career: a new competition, so the mode picker (ARCADE)
-  { "career bout from the right" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 }, { press = "a" }, { wait = 5 },
-  { press = "a" }, { wait = 5 }, { press = "a" }, { wait = 200 }, { hold = "left", frames = 40 }, { wait = 150 },
+  -- the second profile's career: a new competition, so the mode picker (WHEEL)
+  { "career bout from the right" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
+  { press = "a" }, { wait = 5 }, { press = "down" }, { press = "down" },
+  { press = "a" }, { wait = 5 }, { press = "a" }, { wait = 200 }, { hold = "left", frames = 40 }, { press = "a" },
+  { wait = 10 }, { press = "a" }, { wait = 150 }, { press = "a" }, { wait = 10 }, { press = "a" }, { wait = 150 },
   { press = "start" }, { press = "down" }, { press = "down" }, { press = "down" }, { press = "a" }, { wait = 5 },
   { press = "b" }, { wait = 5 }, { press = "b" }, { wait = 5 },
   { "done" },
@@ -118,8 +135,8 @@ function S.install(app)
       local sc = app.current and app.current()
       local d = ""
       for k, v in pairs(c) do d = d .. tostring(k) .. "=" .. tostring(v) .. " " end
-      local nm = sc and (sc.mode or (sc.bout and ("bout:" .. sc.bout.phase .. (sc.match and (" " .. sc.match.mode
-        .. (sc.menu2 and (" MENU " .. sc.menu2.menu) or "")) or ""))) or "?") or "-"
+      local nm = sc and ((sc.bout and ("bout:" .. sc.bout.phase .. (sc.match and (" " .. sc.match.mode
+        .. (sc.menu2 and (" MENU " .. sc.menu2.menu) or "")) or ""))) or sc.mode or "?") or "-"
       print(string.format("  %3d %-28s scene=%s sel=%s", step - 1, d, tostring(nm), tostring(sc and (sc.sel or (sc[sc.mode or ""] and sc[sc.mode].sel)))))
     end
     if c[1] then

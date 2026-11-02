@@ -183,14 +183,14 @@ RO = {
   "FOOTWORK": "DEPLASARE",
   "ATK": "ATC", "DEF": "APR", "TIM": "TMP", "FTW": "DPL",
   "DIRECT LUNGE": "FANDARE DIRECTĂ",
-  "One fast tempo. A counterattack has no priority against it; a parry or a retreat stops it.":
-    "Un singur timp, rapid. Contraatacul nu are prioritate în fața lui; o paradă sau o retragere îl opresc.",
+  "One fast tempo. A counterattack has no priority on it; a parry or a retreat stops it.":
+    "Un singur timp, rapid. Contraatacul nu are prioritate; parada sau retragerea îl opresc.",
   "DISENGAGE": "DEGAJAMENT",
   "Lunge round their blade: deceives a simple parry. A circular parry catches it.":
     "Fandare ocolind lama: înșală parada simplă. Parada circulară îl prinde.",
   "STEP-LUNGE": "PAS-FANDARE",
   "Advance, then lunge: catches a retreat. The step is a preparation they can hit into.":
-    "Pas înainte, apoi fandare: prinde retragerea. Pasul e o pregătire în care te pot ataca.",
+    "Pas înainte și fandare: prinde retragerea. Pasul e o pregătire în care te pot ataca.",
   "BEAT-LUNGE": "BĂTAIE-FANDARE",
   "Knock their blade aside, then lunge: spoils a stop-hit and a simple parry.":
     "Bate lama adversă, apoi fandează: strică lovitura de oprire și parada simplă.",
@@ -215,7 +215,7 @@ RO = {
   "Straight back at once: it beats a remise. A counter-parry can stop it.":
     "Imediat și direct: bate remiza. O contraparadă o poate opri.",
   "INDIRECT RIPOSTE": "RIPOSTĂ INDIRECTĂ",
-  "Riposte round their blade: deceives the counter-parry, but gives them time to recover.":
+  "Goes round the counter-parry, but gives them time to recover.":
     "Riposta ocolește lama: înșală contraparada, dar îi lasă timp să revină.",
   "DELAYED RIPOSTE": "RIPOSTĂ ÎNTÂRZIATĂ",
   "Let their counter-parry go by, then hit. A remise or a quick recovery beats it.":
@@ -276,6 +276,8 @@ RO = {
   "MODE: %s": "MOD: %s",
   "SWITCH ANY TIME FROM THE PAUSE MENU": "SE POATE SCHIMBA ORICÂND DIN PAUZĂ",
   "ONLY FENCERS FROM %s": "DOAR SCRIMERI DIN %s",
+  "Move live with ←/→, L1 and R1. Whoever moves first stops the bout: you both pick one of five actions, each beating two.":
+    "Te miști liber cu ←/→, L1 și R1. Cine acționează primul oprește asaltul: alegeți una din cinci acțiuni, fiecare bate două.",
   "Fence every action yourself, in real time: lunges, parries, feints and flèches on the buttons.":
     "Faci singur fiecare acțiune, în timp real: fandări, parade, fente și fleșe, din butoane.",
   "Move live with ←/→, L1 and R1. When someone attacks, the bout stops and you choose the blade work from a menu.":
@@ -285,6 +287,42 @@ RO = {
   "DE BOUTS TO %d · OPPONENTS %s TO %s": "ED LA %d · ADVERSARI %s-%s",
   "A MEDAL UNLOCKS THE NEXT COMPETITION": "O MEDALIE DESCHIDE COMPETIȚIA URMĂTOARE",
   "MEDALS  %d GOLD · %d SILVER · %d BRONZE": "MEDALII  %d AUR · %d ARGINT · %d BRONZ",
+  # the wheel bout
+  "WHEEL BOUT": "ASALT PE ROATĂ",
+  "WHEEL": "ROATĂ",
+  "MOVE LIVE, PICK EACH EXCHANGE ON THE WHEEL": "MIȘCARE LIBERĂ, FIECARE FAZĂ PE ROATĂ",
+  "FIVE ACTIONS: EACH BEATS TWO, LOSES TO TWO": "CINCI ACȚIUNI: FIECARE BATE DOUĂ, PIERDE LA DOUĂ",
+  "MOVE FIRST: PICK ON THE WHEEL": "ACȚIONEZI PRIMUL: ALEGI PE ROATĂ",
+  "CANCEL YOUR MOVE": "RENUNȚĂ LA ACȚIUNE",
+  "MOVE FIRST": "ACȚIONEAZĂ PRIMUL",
+  "YOU MOVE FIRST": "ACȚIONEZI PRIMUL",
+  "%s MOVES FIRST!": "%s ACȚIONEAZĂ PRIMUL!",
+  "DIRECT ATTACK": "ATAC DIRECT",
+  "FEINT ATTACK": "ATAC CU FENTĂ",
+  "BEAT ATTACK": "ATAC CU BĂTAIE",
+  "DIRECT": "DIRECT",
+  "FEINT": "FENTĂ",
+  "WINS AGAINST: %s": "CÂȘTIGĂ CONTRA: %s",
+  "LOSES TO: %s": "PIERDE CONTRA: %s",
+  "ONE TEMPO BEATS TWO": "UN TIMP BATE DOI TIMPI",
+  "ATTACK INTO THE PREPARATION": "ATAC PE PREGĂTIRE",
+  "THE FEINT DECEIVES THE PARRY": "FENTA ÎNȘALĂ PARADA",
+  "THE BLADE EVADES THE BEAT": "LAMA SCAPĂ DE BĂTAIE",
+  "PARRY, THEN RIPOSTE": "PARADĂ, APOI RIPOSTĂ",
+  "THE PARRY FINDS THE BLADE IN LINE": "PARADA GĂSEȘTE LAMA ÎN LINIE",
+  "THE POINT IN LINE HAS PRIORITY": "BRAȚUL ÎN LINIE ARE PRIORITATE",
+  "THE FEINT RUNS ONTO THE POINT": "FENTA SE ÎNFIGE ÎN VÂRF",
+  "THE BEAT REMOVES THE LINE": "BĂTAIA SCOATE BRAȚUL DIN LINIE",
+  "THE BEAT OPENS THE LINE": "BĂTAIA DESCHIDE LINIA",
+  "BOTH WAIT: NOBODY ATTACKS": "AMÂNDOI AȘTEAPTĂ: NIMENI NU ATACĂ",
+  "BOTH IN LINE: NOBODY ATTACKS": "AMÂNDOI ÎN LINIE: NIMENI NU ATACĂ",
+  "THE BLADES CLASH": "LAMELE SE CIOCNESC",
+  "Press A to move first, or wait for them. The bout stops and you both pick one of five actions: theirs is already chosen.":
+    "Apeși A ca să acționezi primul, sau aștepți. Asaltul se oprește și alegeți amândoi una din cinci acțiuni: a lui e deja aleasă.",
+  "DIRECT beats FEINT and BEAT. FEINT beats PARRY and BEAT. PARRY beats DIRECT and LINE. LINE beats DIRECT and FEINT. BEAT beats LINE and PARRY.":
+    "DIRECTUL bate FENTA și BĂTAIA. FENTA bate PARADA și BĂTAIA. PARADA bate DIRECTUL și LINIA. LINIA bate DIRECTUL și FENTA. BĂTAIA bate LINIA și PARADA.",
+  "The same pick: no touch. Distance and ratings don't count.":
+    "Aceeași alegere: fără tușă. Distanța și atributele nu contează.",
   # how to play
   "HIGH / LOW LINE": "LINIE SUS / JOS",
   "LUNGE (HOLD: STAY IN IT)": "FANDARE (ȚINUT: RĂMÂI ÎN EA)",

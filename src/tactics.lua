@@ -40,7 +40,7 @@ Tac.SLOW = 0.55      -- exchanges are played in slow motion
 Tac.ACT = {
   -- attacks
   direct = { name = "DIRECT LUNGE",
-    desc = "One fast tempo. A counterattack has no priority against it; a parry or a retreat stops it." },
+    desc = "One fast tempo. A counterattack has no priority on it; a parry or a retreat stops it." },
   disengage = { name = "DISENGAGE",
     desc = "Lunge round their blade: deceives a simple parry. A circular parry catches it." },
   step = { name = "STEP-LUNGE",
@@ -64,7 +64,7 @@ Tac.ACT = {
   rdirect = { name = "DIRECT RIPOSTE",
     desc = "Straight back at once: it beats a remise. A counter-parry can stop it." },
   rindirect = { name = "INDIRECT RIPOSTE",
-    desc = "Riposte round their blade: deceives the counter-parry, but gives them time to recover." },
+    desc = "Goes round the counter-parry, but gives them time to recover." },
   rdelayed = { name = "DELAYED RIPOSTE",
     desc = "Let their counter-parry go by, then hit. A remise or a quick recovery beats it." },
   -- answers to a parry
@@ -370,10 +370,11 @@ Tac.AGGR = { attacker = 1.4, flecheur = 1.1, balanced = 1.0, counter = 0.6, defe
 local Brain = {}
 Brain.__index = Brain
 
-function Tac.brain(level, style)
+-- pref: what this style likes, by action (default: the tactical menus').
+function Tac.brain(level, style, pref)
   return setmetatable({
     level = level, style = style, read = byLevel(READ, level, 0.25), temp = byLevel(TEMP, level, 0.3),
-    pref = PREF[style] or {}, seen = {},
+    pref = pref or PREF[style] or {}, seen = {},
   }, Brain)
 end
 
@@ -512,6 +513,7 @@ end
 
 local Match = {}
 Match.__index = Match
+Tac.Match = Match        -- src/wheel.lua builds on it
 
 -- Chance per second that the CPU attacks, by distance band
 local BAND_RATE = { close = 1.8, lunge = 0.9, step = 0.4, long = 0 }
@@ -520,16 +522,18 @@ local FLECHEUR_RATE = { close = 1.2, lunge = 0.8, step = 0.8, long = 0.35 }
 -- sides[i] = { human = bool, ratings = {...}, live = controller,
 --              brain, style, level (CPU) }
 -- ask(i, menu, info, done): a human picks from menu; done(key), or
--- done(nil) to cancel an attack.
-function Tac.match(b, sides, ask)
+-- done(nil) to cancel an attack. class: a subclass of Match (src/wheel.lua).
+function Tac.match(b, sides, ask, class)
   local m = setmetatable({
     b = b, sides = sides, ask = ask, mode = "live",
     quiet = 0, cool = 0.8, chain = 0,
     scripts = { Tac.script(), Tac.script() },
     allow = { "ignore", "ignore" },
     picks = { {}, {} },          -- what each side chose, menu by menu
-  }, Match)
-  b.o.judge = function(_, i, region) return m:judge(i, region) end
+  }, class or Match)
+  -- the scoring box asks the match being fenced (set again on a switch of mode)
+  m.judgeFn = function(_, i, region) return m:judge(i, region) end
+  b.o.judge = m.judgeFn
   return m
 end
 
@@ -660,6 +664,7 @@ local function arrive(action, dist, spd)
   end
   return t / spd
 end
+Tac.arrive = arrive
 
 function Match:begin(stage, ai)
   local b = self.b

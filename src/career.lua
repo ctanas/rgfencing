@@ -2,7 +2,7 @@
 -- event: two pools of six (bouts to 5, FIE bout order), a ranking by
 -- victories/matches, indicator (touches scored - received) and touches
 -- scored, then a direct-elimination table of 8 (bouts to 10 or 15).
--- You fence your own bouts, in arcade or tactical mode (chosen when the
+-- You fence your own bouts, in arcade, tactical or wheel mode (chosen when the
 -- competition starts, and switchable from the pause menu of any bout);
 -- the others are simulated from the fencers' ratings. A medal (top 3)
 -- unlocks the next competition. The national championships are fenced
@@ -65,7 +65,7 @@ local function rnd() return love.math.random() end
 -- Building and simulating an event
 ---------------------------------------------------------------------------
 
--- mode: "arcade" or "tactical", for the player's bouts.
+-- mode: "arcade", "tactical" or "wheel", for the player's bouts.
 function CA.newEvent(idx, mode)
   local E = CA.EVENTS[idx]
   local me, nation = Profile.fencer()
@@ -298,13 +298,14 @@ end
 ---------------------------------------------------------------------------
 
 -- The mode of the event's bouts: "arcade" (events from before the choice
--- existed) or "tactical".
+-- existed), "tactical" or "wheel".
 function CA.mode()
-  return save.ev and save.ev.mode or "arcade"
+  local m = save.ev and save.ev.mode
+  return TP.MODE_NAME[m] and m or "arcade"
 end
 
 local function modeName(mode)
-  return TP.MODE_NAME[mode == "tactical"]
+  return TP.MODE_NAME[mode] or TP.MODE_NAME.arcade
 end
 
 function CA.fence(app, oppId, touches, onDone)
@@ -314,11 +315,11 @@ function CA.fence(app, oppId, touches, onDone)
   local side = settings.data.side
   app.set(TP.versus(app, {
     opp = { name = o.last, nation = o.nation }, level = o.rating, style = o.style,
-    tactical = CA.mode() == "tactical",
+    mode = CA.mode(),
     -- a switch in the pause menu holds for the rest of the competition
-    onMode = function(tactical)
-      ev.mode = tactical and "tactical" or "arcade"
-      save.mode = ev.mode
+    onMode = function(mode)
+      ev.mode = mode
+      save.mode = mode
       CA.write()
     end,
     touches = touches,
@@ -592,10 +593,11 @@ function CA.eventScreen(app)
   app.set(s)
 end
 
--- Before a competition starts: arcade or tactical.
+-- Before a competition starts: arcade, tactical or wheel.
 CA.MODE_INFO = {
   arcade = "Fence every action yourself, in real time: lunges, parries, feints and flèches on the buttons.",
   tactical = "Move live with ←/→, L1 and R1. When someone attacks, the bout stops and you choose the blade work from a menu.",
+  wheel = "Move live with ←/→, L1 and R1. Whoever moves first stops the bout: you both pick one of five actions, each beating two.",
 }
 
 function CA.chooseMode(app, idx)
@@ -609,27 +611,30 @@ function CA.chooseMode(app, idx)
   local m = Menu.new({
     { label = "ARCADE", action = function() start("arcade") end, mode = "arcade" },
     { label = "TACTICAL", action = function() start("tactical") end, mode = "tactical" },
+    { label = "WHEEL", action = function() start("wheel") end, mode = "wheel" },
     { label = "BACK", action = back },
   }, { back = back })
-  if save.mode == "tactical" then m.sel = 2 end
+  for k, it in ipairs(m.items) do
+    if it.mode and it.mode == save.mode then m.sel = k end
+  end
   local s = {}
   function s:update() m:update() end
   function s:draw()
     frame(E.name, "HOW WILL YOU FENCE?")
     local x, w = 60, W - 120
-    m:draw(x, 30, w)
+    m:draw(x, 27, w)
     local mode = m.items[m.sel].mode
     if mode then
-      gfx.panel(8, 72, W - 16, 38)
-      gfx.para(CA.MODE_INFO[mode], 14, 77, W - 28, C.text, 9)
+      gfx.panel(8, 77, W - 16, 42)
+      gfx.para(CA.MODE_INFO[mode], 14, 81, W - 28, C.text, 9)
     end
     if E.national then
       local _, nation = Profile.fencer()
       if Names.has(nation) then
-        gfx.text(I.f("ONLY FENCERS FROM %s", I.tr(Nations.name(nation))), W / 2, 116, C.dim, "center")
+        gfx.text(I.f("ONLY FENCERS FROM %s", I.tr(Nations.name(nation))), W / 2, 123, C.dim, "center")
       end
     end
-    gfx.text("SWITCH ANY TIME FROM THE PAUSE MENU", W / 2, 128, C.dim, "center")
+    gfx.text("SWITCH ANY TIME FROM THE PAUSE MENU", W / 2, 133, C.dim, "center")
     gfx.hints({ { "A", "SELECT" }, { "B", "CAREER" } }, W / 2, H - 14, "center")
   end
   app.set(s)
@@ -693,6 +698,10 @@ function CA.shot(app, mode, args)
     CA.hub(app)
     return
   elseif mode == "choose" then
+    -- --pick arcade|tactical|wheel: the choice highlighted
+    for k, a in ipairs(args or {}) do
+      if a == "--pick" then save.mode = args[k + 1] end
+    end
     CA.chooseMode(app, 3)
     return
   end

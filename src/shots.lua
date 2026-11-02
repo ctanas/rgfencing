@@ -7,8 +7,10 @@
 --   pose --pose A,B [--gap G]   two fencers frozen in poses
 --        poses: guard low lunge extend parry parrylow fleche salute stand victory
 --   pool | bracket        career screens with a simulated event
---   choose                the arcade/tactical choice before a competition
+--   choose                the arcade/tactical/wheel choice before a competition
 --   pause [--tactical]    a quick bout's pause menu, with its MODE row
+--   tactical | wheel      a menu (--menu, --sel) or an exchange (--exchange)
+--   reel [--seg N]        the README's showcase: frames NAME_0001.png... (src/reel.lua)
 
 local core = require("src.core")
 local Bout = require("src.bout")
@@ -180,6 +182,7 @@ function S.start(app, shot)
   local mode = shot.mode
   if argValue(args, "--side") then require("src.settings").data.side = tonumber(argValue(args, "--side")) end
   if mode == "film" then return film(app, shot, argValue(args, "--act") or "idle") end
+  if mode == "reel" then return require("src.reel").start(app, shot) end
   if mode == "bout" or mode == "demo" then
     local lvl = tonumber(argValue(args, "--level")) or 3
     local a1, a2 = AI.new(lvl, "balanced"), AI.new(lvl, "attacker")
@@ -235,10 +238,11 @@ function S.start(app, shot)
     app.set(kb)
   elseif mode == "nations" then
     app.set(require("src.profiles_ui").nations(app, { code = "ROU", onDone = function() end, onCancel = function() end }))
-  elseif mode == "tactical" then
-    -- --menu attack|defend|riposte|parried, or --exchange A,D,RESULT
+  elseif mode == "tactical" or mode == "wheel" then
+    -- tactical: --menu attack|defend|riposte|parried, or --exchange A,D,RESULT
+    -- wheel: --menu wheel|wheel2 (they move first), or --exchange K1,K2
     -- (staged, captured --time S later); --gap G between the fencers
-    require("src.tactical").start(app)
+    require("src.tactical").start(app, mode)
     local p = app.current()
     local b, m = p.bout, p.match
     if argValue(args, "--intro") then return end
@@ -253,7 +257,11 @@ function S.start(app, shot)
     for _ = 1, 20 do b:update(1 / 60) end
     m.cool = 99
     local ex = argValue(args, "--exchange")
-    if ex then
+    if ex and mode == "wheel" then
+      local k1, k2 = ex:match("^(%w+),(%w+)$")
+      m:resolve(1, k1, k2)
+      b.call = nil
+    elseif ex then
       local a, d, res = ex:match("^(%w+),(%w+),(%w+)$")
       local Tac = require("src.tactics")
       local ctx = m:attackCtx(1)
@@ -279,7 +287,7 @@ function S.start(app, shot)
     require("src.title").startQuick(app)
     local p = app.current()
     if argValue(args, "--tactical") then
-      p.tactical = true
+      p.mode = "tactical"
       p:applyMode()
     end
     p.paused = true
